@@ -1,4 +1,4 @@
 .env
 assets/
 __pycache__/
-kiosk-launcher/node_modules/
+edge-profiles/

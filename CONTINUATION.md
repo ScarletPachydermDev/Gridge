@@ -23,7 +23,10 @@ like Tab (navigate), A = Enter/Play-Pause, B = Back/Escape.
   only, to keep the Flatpak runtime light. Keep this going unless there's
   a strong reason to add `requests`.
 - **Flatpak target: x86_64 only** (changed from an earlier x64+arm64
-  plan — see kiosk launcher decision below for why).
+  plan — see kiosk launcher decision below for why. Tried reverting this
+  when the launcher architecture changed again later, but Edge itself
+  has no Linux arm64 build either — checked its Flathub manifest,
+  `only-arches: [x86_64]` — so this stays x86_64-only regardless).
 - Plan: publish to GitHub (done) for issues, then submit to **Flathub**
   for auto-updates.
 
@@ -114,117 +117,67 @@ user IDs.
 
 ## Later stages (not started)
 
-- **Kiosk-mode browser launch — REVISED decision: bundle a Widevine-enabled
-  Electron, don't shell out to an installed browser.** (Superseded the
-  original "shell out to Brave/Chrome" plan below — kept struck through
-  for context in case this needs revisiting.)
-  - Using [castLabs' Electron fork](https://github.com/castlabs/electron-releases)
-    ("Electron for Content Security", tag suffix `+wvcus`), which bundles
-    Widevine CDM support via an official `components` API
-    (`await components.whenReady()` before creating the `BrowserWindow`).
-    Install via `npm install "https://github.com/castlabs/electron-releases#vXX.X.X+wvcus" --save-dev`
-    (not published to the npm registry, GitHub tag pinning only).
-  - Scaffolded in `kiosk-launcher/` (see below).
-  - **x86_64 only** — confirmed by checking release assets across
-    v41–v44: castLabs publishes `linux-x64` builds only, no `linux-arm64`,
-    on every recent release. Since Steam Deck itself is x86_64, this
-    doesn't hurt the main target, but it's why the arm64 Flatpak target
-    was dropped (decided over the original x64+arm64 plan — user
-    explicitly doesn't care about Flatpak size, so bundling Electron
-    instead of shelling out was preferred).
-  - Linux support in this fork is officially "partial": no persistent
-    license storage (VMP limitation on Linux). Shouldn't matter here —
-    that only affects offline-download DRM, not regular streaming
-    playback.
-  - Dev-signed builds (the default, no castLabs EVS subscription) may cap
-    playback quality similarly to how Linux browsers already cap Netflix
-    at ~720p without hardware-backed Widevine L1 — expected to be a wash
-    against the browser-based approach, not a regression.
-  - ~~Original plan: shell out to an installed Chromium-based browser with
-    `--app=<url>`, avoid embedding a browser engine at all, accept that
-    users need Brave/Chrome/Edge already installed.~~
-  - **CONFIRMED WORKING on real hardware** (x86_64 desktop with Steam as
-    Flatpak, and a real Steam Deck), after working through several
-    real-world gotchas:
-    - `npm install` alone doesn't trigger the platform binary download in
-      this castLabs fork on a fresh machine — had to manually run
-      `node node_modules/electron/install.js` once to force it.
-    - Fresh Fedora toolbox containers are missing several Chromium
-      runtime shared libs by default: `nspr`, `nss`, and the full GTK3
-      stack (`gtk3`, `libXcomposite`, `libXcursor`, `libXdamage`,
-      `libXext`, `libXfixes`, `libXrandr`, `libXScrnSaver`,
-      `libxshmfence`, `pango`, `cairo`). Install these via `dnf` in
-      whatever distrobox/toolbox container runs the launcher.
-    - If Widevine CDM install fails ("Failed to install required
-      components"), check whether an ad/DNS blocker (AdGuard Home, etc.)
-      is blocking Google's component-update domains
-      (`update.googleapis.com`, `dl.google.com`, `edgedl.me.gvt1.com`,
-      `www.google.com`) — this was the actual cause once, not a real
-      Electron/Widevine bug.
-    - **VMP/EVS signing does NOT apply on Linux at all** — the Linux
-      Widevine CDM doesn't support or require VMP, so castLabs' free
-      dev-signed build works exactly the same as a paid EVS-signed one
-      here. (VMP/EVS only matters for Windows/Mac.) Don't waste time
-      chasing an EVS signup for Linux-only playback issues.
-    - Don't spoof a Windows user agent — found
-      [quark-player](https://github.com/Alex313031/quark-player), an
-      existing Electron app supporting Disney+/Netflix on this same
-      castLabs fork, and its per-service config uses the natural
-      Electron/Chromium Linux UA for both, no spoofing. Also matched its
-      `webPreferences: { sandbox: false }`.
-    - A real early blocker was **"Could not determine privacy consent
-      status before playback"** — a fresh Electron profile has never
-      seen Disney+'s cookie-consent prompt, so the site can't confirm a
-      decision and refuses to play anything until you explicitly click
-      Accept (not Reject) on it once per profile/userData directory.
-      Rejecting cookies (a reasonable default habit) reproduces this
-      same failure.
-    - **Remaining known limitation, not fixable client-side: no Dolby
-      Digital Plus/Atmos audio decoding.** Microsoft Edge has a direct
-      Dolby licensing deal baked into its binary on every platform it
-      ships; Google never licensed Dolby codecs into open-source
-      Chromium, so no other Chromium derivative (this app included) can
-      decode EC-3/Atmos audio. Titles that only publish a Dolby audio
-      track (typical for big-budget content) will fail with an audio
-      decoder error (`DECODER_ERROR_NOT_SUPPORTED` /
-      `kUnsupportedConfig`); titles mastered in plain stereo/AAC (older
-      or lower-tier catalog content, e.g. confirmed working: Golden
-      Girls) play fine. There is no reliable client-side way to force a
-      stereo fallback — it depends on whether that title's manifest even
-      has a non-Dolby rendition published, which the client can't
-      influence. Accepted as an inherent limitation of not having Dolby
-      licensing, not something worth continuing to chase.
-  - **Wired into the real Steam shortcut (`create_webapp.py`'s
-    `register_steam_shortcut()`) and confirmed launching successfully
-    from actual Steam Deck Game Mode** — this needed two more fixes
-    beyond everything above, since a working Desktop Mode test doesn't
-    guarantee Game Mode works (different session/launch path):
-    - Steam still sets `LD_PRELOAD` for its overlay in every child
-      process (zygote, GPU, renderer) even with `AllowOverlay: 0` in
-      shortcuts.vdf — that flag doesn't stop env var inheritance, it
-      only affects the overlay's own active features. Confirmed via
-      `coredumpctl`: the zygote process segfaulted with
-      `gameoverlayrenderer.so` on its stack even with the flag off. Fix:
-      `kiosk-launcher/launch.sh` wraps the electron binary and does
-      `unset LD_PRELOAD` before exec'ing it; Steam's shortcut `exe` now
-      points at this wrapper script, not the electron binary directly.
-      `AllowOverlay: 0` is still set too (harmless, kept as a second
-      layer).
-    - `shortcuts_vdf.generate_appid()` derives the appid from `exe` +
-      `appname`, so changing `exe` to the wrapper script produces a new
-      appid — remember to re-copy grid assets under the new appid and
-      delete the orphaned old-appid grid files when changing `exe` on an
-      already-registered shortcut.
-    - `app.commandLine.appendSwitch("no-sandbox")` in `main.js` was
-      tried as a fix for a separate SIGSEGV/SIGTRAP crash pattern, but
-      turned out to cause its own crash (renderer processes ended up
-      with contradictory `--enable-sandbox --no-sandbox` flags
-      simultaneously, tripping a Chromium consistency check ->
-      SIGTRAP). Kept in the end anyway since the fully-fixed version
-      (launch.sh + this flag together) is what was actually confirmed
-      working on Game Mode — the launch.sh fix was likely the one doing
-      the real work here, not this flag, but don't re-litigate this
-      without re-testing since the working config includes both.
+- **Kiosk-mode browser launch — FINAL decision: shell out to an installed
+  Microsoft Edge, don't bundle a browser at all.** This is the second
+  reversal on this decision; history kept below for context so it isn't
+  re-litigated:
+  1. Original plan: shell out to any installed Chromium-based browser
+     (Brave/Chrome/Edge) in `--app=<url>` mode.
+  2. Revised to bundling a Widevine-enabled Electron fork (castLabs'
+     "Electron for Content Security"), fully implemented in a
+     `kiosk-launcher/` subproject and **confirmed working end-to-end on
+     real hardware** (x86_64 desktop with Steam as Flatpak, and a real
+     Steam Deck, including from actual Game Mode) — see git history
+     around the `kiosk-launcher/` removal commit for the full trail of
+     gotchas that were worked through to get there (Steam overlay
+     LD_PRELOAD injection crashing Electron's zygote process regardless
+     of `AllowOverlay`, a cookie-consent prompt that must be explicitly
+     accepted once per profile, castLabs' Cloudflare/AdGuard interaction
+     during Widevine CDM install, etc.) if any of that becomes relevant
+     again.
+  3. **Reverted again, this time for good:** that castLabs-Electron setup
+     could not play Dolby Digital Plus/Atmos audio at all — confirmed via
+     `DecoderStatus::Codes::kUnsupportedConfig` errors on any title with a
+     Dolby-only audio track (typical for big-budget content; titles
+     mastered in plain stereo/AAC, e.g. Golden Girls, played fine).
+     Microsoft has a direct Dolby licensing deal baked into Edge's binary
+     on every platform it ships, including Linux; Google never licensed
+     Dolby codecs into open-source Chromium, so **no other Chromium
+     derivative can decode that audio, ever** — not Chrome, not Brave,
+     not a bundled Electron, regardless of build config. This is a hard
+     licensing wall, not a bug, and the user considers it a deal-breaker.
+     Checked whether quark-player (an existing prior-art Electron
+     streaming-service player on the same castLabs fork) found a
+     workaround — it hasn't; [its Disney+ issue](https://github.com/Alex313031/quark-player/issues/49)
+     describes an unrelated black-screen bug, no mention of Dolby at all.
+  - **Current implementation:** `edge_launcher.py` detects an installed
+    Edge (checks native binary names `microsoft-edge`/
+    `microsoft-edge-stable`/etc. first, then falls back to checking for
+    the Flatpak `com.microsoft.Edge`, which is a real official Flathub
+    package). `create_webapp.py` points the Steam shortcut's `exe` at
+    `launch-browser.sh` (a tiny wrapper, kept from the Electron days,
+    that does `unset LD_PRELOAD` before `exec "$@"` — still needed since
+    Steam sets `LD_PRELOAD` for its overlay in every child process
+    regardless of `AllowOverlay`, which would otherwise crash Edge the
+    same way it crashed Electron's zygote), with `LaunchOptions` set to
+    the Edge binary plus `--app=<url> --start-fullscreen
+    --user-data-dir=<per-shortcut profile dir under edge-profiles/,
+    gitignored>`.
+  - **x86_64 only, still** — tried reviving arm64 now that castLabs
+    Electron (the thing that killed it) is gone, but Edge's own Flathub
+    manifest is also `only-arches: [x86_64]` (Microsoft doesn't ship an
+    Edge Linux arm64 build at all), so this stays x86_64-only regardless
+    of which approach is used.
+  - **Not yet re-tested on real Steam Deck hardware** — this pivot
+    happened after the Electron version was already confirmed working on
+    Game Mode; the Edge-based version needs the same real-hardware
+    verification pass before it can be considered done. Likely still-true
+    carryover concerns from the Electron testing: Edge will probably hit
+    the same cookie/privacy-consent-prompt-must-be-accepted-once gotcha
+    on a fresh profile, and the `shortcuts_vdf.generate_appid()` derives
+    from `exe` + `appname` so changing `exe` again means re-copying grid
+    assets under the new appid and deleting the orphaned old ones (same
+    as happened during the Electron pivot).
 - Steam Input controller config bundling (dpad → Tab/Arrows, A → Enter,
   B → Escape) so sites are navigable without a mouse/keyboard. This is a
   Steam feature (works on any non-Steam shortcut), not something the app

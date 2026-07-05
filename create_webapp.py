@@ -10,15 +10,15 @@ import shutil
 import sys
 from urllib.parse import urlparse
 
+import edge_launcher
 import sgdb_client as sgdb
 import shortcuts_vdf
 import steam_paths
 
 ASSET_DIR = os.path.join(os.path.dirname(__file__), "assets")
 APPLICATIONS_DIR = os.path.expanduser("~/.local/share/applications")
-KIOSK_LAUNCHER_DIR = os.path.join(os.path.dirname(__file__), "kiosk-launcher")
-KIOSK_LAUNCHER_ELECTRON = os.path.join(KIOSK_LAUNCHER_DIR, "node_modules", "electron", "dist", "electron")
-KIOSK_LAUNCHER_SCRIPT = os.path.join(KIOSK_LAUNCHER_DIR, "launch.sh")
+LAUNCH_WRAPPER = os.path.join(os.path.dirname(__file__), "launch-browser.sh")
+EDGE_PROFILES_DIR = os.path.join(os.path.dirname(__file__), "edge-profiles")
 
 
 def slugify(name):
@@ -93,17 +93,13 @@ GRID_FILENAMES = {
 def register_steam_shortcut(name, url, asset_paths, user_id=None):
     """Copy fetched assets into Steam's grid folder and add/update a
     non-Steam shortcut entry in shortcuts.vdf. Returns the appid."""
-    if not os.path.exists(KIOSK_LAUNCHER_ELECTRON):
-        sys.exit(
-            f"Kiosk launcher isn't built: {KIOSK_LAUNCHER_ELECTRON} not found.\n"
-            f"Run: cd {KIOSK_LAUNCHER_DIR} && npm install"
-        )
+    edge_exe, edge_prefix_args = edge_launcher.find_edge()
 
     userdata_dir = steam_paths.find_userdata_dir(user_id)
     grid_dir = os.path.join(userdata_dir, "config", "grid")
     os.makedirs(grid_dir, exist_ok=True)
 
-    appid = shortcuts_vdf.generate_appid(KIOSK_LAUNCHER_SCRIPT, name)
+    appid = shortcuts_vdf.generate_appid(LAUNCH_WRAPPER, name)
 
     icon_dest = None
     for basename, src in asset_paths.items():
@@ -116,14 +112,19 @@ def register_steam_shortcut(name, url, asset_paths, user_id=None):
         if basename == "icon":
             icon_dest = dest
 
+    profile_dir = os.path.join(EDGE_PROFILES_DIR, slugify(name))
+    os.makedirs(profile_dir, exist_ok=True)
+
+    edge_args = [edge_exe, *edge_prefix_args, f"--app={url}", "--start-fullscreen", f"--user-data-dir={profile_dir}"]
+
     vdf_path = os.path.join(userdata_dir, "config", "shortcuts.vdf")
     written_appid = shortcuts_vdf.add_shortcut(
         vdf_path,
         appname=name,
-        exe=KIOSK_LAUNCHER_SCRIPT,
-        start_dir=KIOSK_LAUNCHER_DIR + "/",
+        exe=LAUNCH_WRAPPER,
+        start_dir=os.path.dirname(LAUNCH_WRAPPER) + "/",
         icon=icon_dest or "",
-        launch_options=f". {url}",
+        launch_options=" ".join(edge_args),
         allow_overlay=False,
     )
     assert written_appid == appid
@@ -180,6 +181,8 @@ def main():
             return
         except steam_paths.SteamNotFoundError as e:
             print(f"\n! Steam not found ({e}), falling back to test .desktop entry")
+        except edge_launcher.EdgeNotFoundError as e:
+            print(f"\n! {e}\nFalling back to test .desktop entry")
 
     icon_path = paths.get("icon") or paths.get("grid_vertical")
     register_test_desktop_entry(match["name"], slug, args.url, icon_path)

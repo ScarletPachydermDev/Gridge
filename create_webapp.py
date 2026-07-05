@@ -18,6 +18,7 @@ ASSET_DIR = os.path.join(os.path.dirname(__file__), "assets")
 APPLICATIONS_DIR = os.path.expanduser("~/.local/share/applications")
 KIOSK_LAUNCHER_DIR = os.path.join(os.path.dirname(__file__), "kiosk-launcher")
 KIOSK_LAUNCHER_ELECTRON = os.path.join(KIOSK_LAUNCHER_DIR, "node_modules", "electron", "dist", "electron")
+KIOSK_LAUNCHER_SCRIPT = os.path.join(KIOSK_LAUNCHER_DIR, "launch.sh")
 
 
 def slugify(name):
@@ -102,7 +103,7 @@ def register_steam_shortcut(name, url, asset_paths, user_id=None):
     grid_dir = os.path.join(userdata_dir, "config", "grid")
     os.makedirs(grid_dir, exist_ok=True)
 
-    appid = shortcuts_vdf.generate_appid(KIOSK_LAUNCHER_ELECTRON, name)
+    appid = shortcuts_vdf.generate_appid(KIOSK_LAUNCHER_SCRIPT, name)
 
     icon_dest = None
     for basename, src in asset_paths.items():
@@ -119,7 +120,7 @@ def register_steam_shortcut(name, url, asset_paths, user_id=None):
     written_appid = shortcuts_vdf.add_shortcut(
         vdf_path,
         appname=name,
-        exe=KIOSK_LAUNCHER_ELECTRON,
+        exe=KIOSK_LAUNCHER_SCRIPT,
         start_dir=KIOSK_LAUNCHER_DIR + "/",
         icon=icon_dest or "",
         launch_options=f". {url}",

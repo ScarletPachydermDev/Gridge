@@ -6,13 +6,17 @@ shows up in the app menu.
 import argparse
 import os
 import re
+import shutil
 import sys
 from urllib.parse import urlparse
 
 import sgdb_client as sgdb
+import shortcuts_vdf
+import steam_paths
 
 ASSET_DIR = os.path.join(os.path.dirname(__file__), "assets")
 APPLICATIONS_DIR = os.path.expanduser("~/.local/share/applications")
+XDG_OPEN = "/usr/bin/xdg-open"
 
 
 def slugify(name):
@@ -75,6 +79,50 @@ def fetch_assets(game_id, slug):
     return paths
 
 
+GRID_FILENAMES = {
+    "grid_vertical": "{appid}p{ext}",
+    "grid_horizontal": "{appid}{ext}",
+    "hero": "{appid}_hero{ext}",
+    "logo": "{appid}_logo{ext}",
+    "icon": "{appid}_icon{ext}",
+}
+
+
+def register_steam_shortcut(name, url, asset_paths, user_id=None):
+    """Copy fetched assets into Steam's grid folder and add/update a
+    non-Steam shortcut entry in shortcuts.vdf. Returns the appid."""
+    userdata_dir = steam_paths.find_userdata_dir(user_id)
+    grid_dir = os.path.join(userdata_dir, "config", "grid")
+    os.makedirs(grid_dir, exist_ok=True)
+
+    appid = shortcuts_vdf.generate_appid(XDG_OPEN, name)
+
+    icon_dest = None
+    for basename, src in asset_paths.items():
+        if basename not in GRID_FILENAMES:
+            continue
+        ext = os.path.splitext(src)[1]
+        dest = os.path.join(grid_dir, GRID_FILENAMES[basename].format(appid=appid, ext=ext))
+        shutil.copy2(src, dest)
+        print(f"  + {os.path.basename(dest)}  <-  {src}")
+        if basename == "icon":
+            icon_dest = dest
+
+    vdf_path = os.path.join(userdata_dir, "config", "shortcuts.vdf")
+    written_appid = shortcuts_vdf.add_shortcut(
+        vdf_path,
+        appname=name,
+        exe=XDG_OPEN,
+        start_dir=os.path.dirname(XDG_OPEN) + "/",
+        icon=icon_dest or "",
+        launch_options=url,
+    )
+    assert written_appid == appid
+    print(f"\nAdded/updated Steam shortcut '{name}' (appid {appid}) in {vdf_path}")
+    print("Restart Steam (fully quit, not just close the window) to see it.")
+    return appid
+
+
 def register_test_desktop_entry(name, slug, url, icon_path):
     """Add a .desktop file to the app menu so we can visually confirm the
     icon/artwork pipeline without needing Steam installed."""
@@ -102,15 +150,27 @@ def register_test_desktop_entry(name, slug, url, icon_path):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Stage 1: SGDB search + asset fetch test")
+    parser = argparse.ArgumentParser(description="Search SGDB, fetch assets, add a Steam shortcut")
     parser.add_argument("name", help="App name to search on SteamGridDB, e.g. Netflix")
     parser.add_argument("url", help="URL the webapp should open, e.g. https://netflix.com")
+    parser.add_argument("--steam-user", help="Steam user id, only needed if you have more than one")
+    parser.add_argument(
+        "--desktop-only", action="store_true",
+        help="Skip Steam integration and just register a test .desktop entry",
+    )
     args = parser.parse_args()
 
     match = pick_match(args.name)
     slug = slugify(match["name"])
     print(f"\nFetching assets for '{match['name']}' (SGDB id {match['id']})...")
     paths = fetch_assets(match["id"], slug)
+
+    if not args.desktop_only:
+        try:
+            register_steam_shortcut(match["name"], args.url, paths, args.steam_user)
+            return
+        except steam_paths.SteamNotFoundError as e:
+            print(f"\n! Steam not found ({e}), falling back to test .desktop entry")
 
     icon_path = paths.get("icon") or paths.get("grid_vertical")
     register_test_desktop_entry(match["name"], slug, args.url, icon_path)

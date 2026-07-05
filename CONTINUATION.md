@@ -64,29 +64,42 @@ Non-obvious things learned along the way:
   machine, it's not in git.
 - `assets/` (gitignored) holds test-downloaded images, also not in git.
 
-## Stage 2 — next up (the reason for switching to x86)
+## Stage 2 — items 1-4 done, confirmed working on real Steam
 
-Real Steam integration, testable now that Steam actually runs:
+1. **`shortcuts.vdf` writer** — done, `shortcuts_vdf.py`. Binary VDF
+   read/write (type-tagged tree: 0x00 map / 0x01 string / 0x02 int32,
+   0x08 closes a map). `load()`/`save()` round-trip preserves existing
+   entries and auto-backs up to `.bak` before overwriting.
+   `add_shortcut()` updates in place by matching `appname` instead of
+   duplicating.
+2. **App ID calculation** — done, `shortcuts_vdf.generate_appid(exe,
+   appname)`: CRC32 of the **quoted** exe path concatenated with the app
+   name, OR'd with `0x80000000`. Same value is used for the vdf's
+   `appid` field and every grid asset filename — confirmed they must all
+   agree or Steam won't associate the artwork.
+3. **Artwork placement** — done, in `create_webapp.py:register_steam_shortcut()`.
+   Saves into `<userdata>/<id>/config/grid/` as `<appid>p.ext` (vertical),
+   `<appid>.ext` (horizontal), `<appid>_hero.ext`, `<appid>_logo.ext`,
+   `<appid>_icon.ext` — extension taken from the real downloaded file,
+   not hardcoded.
+4. **Steam install path detection** — done, `steam_paths.py`. Checks
+   native `~/.local/share/Steam` / `~/.steam/steam` first, then Flatpak
+   `~/.var/app/com.valvesoftware.Steam/.local/share/Steam`. Only tested
+   against the Flatpak path so far (dev machine runs Steam as a
+   Flatpak); native path is unverified. Multiple userdata user IDs
+   aren't auto-resolved — raises and expects `--steam-user`.
 
-1. **`shortcuts.vdf` writer** — binary VDF format Steam uses for non-Steam
-   games, lives at
-   `<userdata>/<steam_user_id>/config/shortcuts.vdf`.
-2. **App ID calculation** — Steam derives a shortcut's app ID from a CRC32
-   of the exe path + app name; grid asset filenames must use this ID.
-3. **Artwork placement** — save the 5 fetched assets into
-   `<userdata>/<steam_user_id>/config/grid/` as:
-   - `<appid>p.png` — vertical grid (portrait box art)
-   - `<appid>.png` — horizontal grid (landscape box art)
-   - `<appid>_hero.png` — hero banner
-   - `<appid>_logo.png` — logo
-   - `<appid>_icon.png` — icon
-4. **Steam install path detection** — must handle both native Steam
-   (`~/.local/share/Steam` or `~/.steam/steam`) *and* Steam installed as a
-   Flatpak itself (`~/.var/app/com.valvesoftware.Steam/.local/share/Steam`),
-   since Bazzite and some CachyOS setups use the latter. Not yet
-   implemented — this is the main portability risk across distros.
-5. Steam needs a restart (or Big Picture/Game Mode refresh) to pick up
-   new shortcuts — no known way around this.
+**Confirmed end-to-end on real Steam (Flatpak) for Disney+:** shortcut
+appeared in Steam's library with full artwork after a full Steam
+restart, and clicking the tile launched the URL correctly via
+`exe=/usr/bin/xdg-open` (a **host** binary path) with no
+`flatpak-spawn --host` wrapper needed — Steam's own Flatpak sandbox
+permissions were broad enough to exec it directly. Worth re-checking
+on a different Bazzite/CachyOS box before assuming this always holds.
+
+5. Steam needs a full restart (fully quit, not just close the window)
+   to pick up new/changed shortcuts — confirmed, no known way around
+   this.
 
 ## Later stages (not started)
 

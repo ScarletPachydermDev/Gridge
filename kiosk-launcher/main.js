@@ -9,11 +9,16 @@ function targetUrl() {
   return arg;
 }
 
+const HIDE_SCROLLBAR_CSS = "::-webkit-scrollbar { width: 0 !important; height: 0 !important; }";
+
 function createWindow(url) {
   const win = new BrowserWindow({
     fullscreen: true,
     frame: false,
     autoHideMenuBar: true,
+  });
+  win.webContents.on("did-finish-load", () => {
+    win.webContents.insertCSS(HIDE_SCROLLBAR_CSS);
   });
   win.loadURL(url);
 }

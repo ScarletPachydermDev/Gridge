@@ -39,15 +39,23 @@ def _flatpak_edge_installed():
 
 def find_edge():
     """Returns (exe, prefix_args) for the installed Edge. prefix_args is
-    empty for a native binary, or ["run", FLATPAK_APP_ID, "--"] when only
-    the Flatpak is installed, so callers can just do
-    [exe, *prefix_args, "--app=<url>", ...]."""
+    empty for a native binary, or ["run", FLATPAK_APP_ID] when only the
+    Flatpak is installed, so callers can just do
+    [exe, *prefix_args, "--app=<url>", ...].
+
+    No "--" separator before the app's own args: flatpak run doesn't
+    need one here (no ambiguity, our args come after the app id), and
+    Chromium/Edge treats a literal "--" in its own argv as "stop parsing
+    flags, treat everything after as URLs" -- flatpak forwards it
+    straight through, so adding one here silently breaks every flag
+    after it (confirmed on real hardware: --app/--start-fullscreen/etc.
+    all opened as literal tabs instead of being parsed)."""
     for name in NATIVE_BINARY_NAMES:
         path = shutil.which(name)
         if path:
             return path, []
 
     if _flatpak_edge_installed():
-        return shutil.which("flatpak"), ["run", FLATPAK_APP_ID, "--"]
+        return shutil.which("flatpak"), ["run", FLATPAK_APP_ID]
 
     raise EdgeNotFoundError(INSTALL_INSTRUCTIONS)

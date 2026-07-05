@@ -194,6 +194,37 @@ user IDs.
       has a non-Dolby rendition published, which the client can't
       influence. Accepted as an inherent limitation of not having Dolby
       licensing, not something worth continuing to chase.
+  - **Wired into the real Steam shortcut (`create_webapp.py`'s
+    `register_steam_shortcut()`) and confirmed launching successfully
+    from actual Steam Deck Game Mode** — this needed two more fixes
+    beyond everything above, since a working Desktop Mode test doesn't
+    guarantee Game Mode works (different session/launch path):
+    - Steam still sets `LD_PRELOAD` for its overlay in every child
+      process (zygote, GPU, renderer) even with `AllowOverlay: 0` in
+      shortcuts.vdf — that flag doesn't stop env var inheritance, it
+      only affects the overlay's own active features. Confirmed via
+      `coredumpctl`: the zygote process segfaulted with
+      `gameoverlayrenderer.so` on its stack even with the flag off. Fix:
+      `kiosk-launcher/launch.sh` wraps the electron binary and does
+      `unset LD_PRELOAD` before exec'ing it; Steam's shortcut `exe` now
+      points at this wrapper script, not the electron binary directly.
+      `AllowOverlay: 0` is still set too (harmless, kept as a second
+      layer).
+    - `shortcuts_vdf.generate_appid()` derives the appid from `exe` +
+      `appname`, so changing `exe` to the wrapper script produces a new
+      appid — remember to re-copy grid assets under the new appid and
+      delete the orphaned old-appid grid files when changing `exe` on an
+      already-registered shortcut.
+    - `app.commandLine.appendSwitch("no-sandbox")` in `main.js` was
+      tried as a fix for a separate SIGSEGV/SIGTRAP crash pattern, but
+      turned out to cause its own crash (renderer processes ended up
+      with contradictory `--enable-sandbox --no-sandbox` flags
+      simultaneously, tripping a Chromium consistency check ->
+      SIGTRAP). Kept in the end anyway since the fully-fixed version
+      (launch.sh + this flag together) is what was actually confirmed
+      working on Game Mode — the launch.sh fix was likely the one doing
+      the real work here, not this flag, but don't re-litigate this
+      without re-testing since the working config includes both.
 - Steam Input controller config bundling (dpad → Tab/Arrows, A → Enter,
   B → Escape) so sites are navigable without a mouse/keyboard. This is a
   Steam feature (works on any non-Steam shortcut), not something the app

@@ -120,6 +120,7 @@ def register_steam_shortcut(name, url, asset_paths, user_id=None):
         *edge_prefix_args,
         f"--app={url}",
         "--kiosk",
+        "--start-fullscreen",
         "--hide-scrollbars",
     ]
 

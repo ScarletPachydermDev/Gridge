@@ -18,7 +18,6 @@ import steam_paths
 ASSET_DIR = os.path.join(os.path.dirname(__file__), "assets")
 APPLICATIONS_DIR = os.path.expanduser("~/.local/share/applications")
 LAUNCH_WRAPPER = os.path.join(os.path.dirname(__file__), "launch-browser.sh")
-EDGE_PROFILES_DIR = os.path.join(os.path.dirname(__file__), "edge-profiles")
 
 
 def slugify(name):
@@ -112,16 +111,20 @@ def register_steam_shortcut(name, url, asset_paths, user_id=None):
         if basename == "icon":
             icon_dest = dest
 
-    profile_dir = os.path.join(EDGE_PROFILES_DIR, slugify(name))
-    os.makedirs(profile_dir, exist_ok=True)
+    # --profile-directory (not --user-data-dir) keeps the persistent,
+    # isolated-per-shortcut profile inside Edge's own default data dir --
+    # Edge's Flatpak sandbox has no --filesystem=host/home permission at
+    # all, so a custom --user-data-dir pointing outside it is silently
+    # inaccessible and logins never persist between launches.
+    profile_name = f"SteamWebApp-{slugify(name)}"
 
     edge_args = [
         edge_exe,
         *edge_prefix_args,
         f"--app={url}",
-        "--start-fullscreen",
+        "--kiosk",
         "--hide-scrollbars",
-        f"--user-data-dir={profile_dir}",
+        f"--profile-directory={profile_name}",
     ]
 
     vdf_path = os.path.join(userdata_dir, "config", "shortcuts.vdf")

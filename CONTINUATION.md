@@ -84,18 +84,28 @@ Non-obvious things learned along the way:
    not hardcoded.
 4. **Steam install path detection** — done, `steam_paths.py`. Checks
    native `~/.local/share/Steam` / `~/.steam/steam` first, then Flatpak
-   `~/.var/app/com.valvesoftware.Steam/.local/share/Steam`. Only tested
-   against the Flatpak path so far (dev machine runs Steam as a
-   Flatpak); native path is unverified. Multiple userdata user IDs
+   `~/.var/app/com.valvesoftware.Steam/.local/share/Steam`. Confirmed
+   correct on both: picks native on the Steam Deck (SteamOS, `holo`),
+   picks Flatpak on the x86_64 dev box. Multiple userdata user IDs
    aren't auto-resolved — raises and expects `--steam-user`.
 
-**Confirmed end-to-end on real Steam (Flatpak) for Disney+:** shortcut
-appeared in Steam's library with full artwork after a full Steam
-restart, and clicking the tile launched the URL correctly via
-`exe=/usr/bin/xdg-open` (a **host** binary path) with no
-`flatpak-spawn --host` wrapper needed — Steam's own Flatpak sandbox
-permissions were broad enough to exec it directly. Worth re-checking
-on a different Bazzite/CachyOS box before assuming this always holds.
+**Confirmed end-to-end on real Steam for Disney+, on two different
+machines:**
+- **x86_64 desktop, Steam as Flatpak** — shortcut appeared with full
+  artwork after a full Steam restart, and the tile launched the URL via
+  `exe=/usr/bin/xdg-open` (a **host** binary path) with no
+  `flatpak-spawn --host` wrapper needed — Steam's own Flatpak sandbox
+  permissions were broad enough to exec it directly.
+- **Steam Deck (SteamOS, native Steam)** — same code, same generated
+  appid (`4039713046`, confirming the calc is deterministic across
+  machines), shortcut appeared with artwork and launched correctly.
+  Reached over SSH (SteamOS ships `sshd` but it's off by default —
+  enabled via Desktop Mode: `passwd` then `sudo systemctl enable --now
+  sshd`; unit is named `sshd`, not `ssh`). `killall steam` is enough to
+  force a restart that picks up new shortcuts; it auto-relaunches.
+
+Not yet tested: Bazzite, CachyOS, a userdata dir with multiple Steam
+user IDs.
 
 5. Steam needs a full restart (fully quit, not just close the window)
    to pick up new/changed shortcuts — confirmed, no known way around

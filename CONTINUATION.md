@@ -22,7 +22,8 @@ like Tab (navigate), A = Enter/Play-Pause, B = Back/Escape.
 - **No third-party Python deps for the SGDB client** — stdlib `urllib`
   only, to keep the Flatpak runtime light. Keep this going unless there's
   a strong reason to add `requests`.
-- Flatpak targets: **x86_64 and aarch64**.
+- **Flatpak target: x86_64 only** (changed from an earlier x64+arm64
+  plan — see kiosk launcher decision below for why).
 - Plan: publish to GitHub (done) for issues, then submit to **Flathub**
   for auto-updates.
 
@@ -113,20 +114,36 @@ user IDs.
 
 ## Later stages (not started)
 
-- **Kiosk-mode browser launch** (decision made, not yet implemented):
-  shell out to an installed Chromium-based browser with `--app=<url>`
-  (borderless window) as the shortcut's `Exec` target — do **not**
-  embed a browser engine in the app. Reasoning: bundling Chromium/CEF
-  adds 150-300MB to the Flatpak and still needs the proprietary
-  Widevine CDM, which is awkward to distribute via Flathub. WebKitGTK
-  (the GTK-native embeddable option) doesn't support Widevine well
-  either, so it's out for DRM'd streaming sites regardless. Accepted
-  tradeoff: users need a Chromium-based browser already installed
-  (Chrome, Chromium, Brave, Edge, ...) — vanilla Firefox's Widevine
-  support isn't reliable enough to depend on. The app should probably
-  detect if none is present and offer to `flatpak install` one rather
-  than fail silently. (Dev machine only has Zen/Firefox installed, no
-  Chromium — another reason to test this on x86 / the Deck.)
+- **Kiosk-mode browser launch — REVISED decision: bundle a Widevine-enabled
+  Electron, don't shell out to an installed browser.** (Superseded the
+  original "shell out to Brave/Chrome" plan below — kept struck through
+  for context in case this needs revisiting.)
+  - Using [castLabs' Electron fork](https://github.com/castlabs/electron-releases)
+    ("Electron for Content Security", tag suffix `+wvcus`), which bundles
+    Widevine CDM support via an official `components` API
+    (`await components.whenReady()` before creating the `BrowserWindow`).
+    Install via `npm install "https://github.com/castlabs/electron-releases#vXX.X.X+wvcus" --save-dev`
+    (not published to the npm registry, GitHub tag pinning only).
+  - Scaffolded in `kiosk-launcher/` (see below).
+  - **x86_64 only** — confirmed by checking release assets across
+    v41–v44: castLabs publishes `linux-x64` builds only, no `linux-arm64`,
+    on every recent release. Since Steam Deck itself is x86_64, this
+    doesn't hurt the main target, but it's why the arm64 Flatpak target
+    was dropped (decided over the original x64+arm64 plan — user
+    explicitly doesn't care about Flatpak size, so bundling Electron
+    instead of shelling out was preferred).
+  - Linux support in this fork is officially "partial": no persistent
+    license storage (VMP limitation on Linux). Shouldn't matter here —
+    that only affects offline-download DRM, not regular streaming
+    playback.
+  - Dev-signed builds (the default, no castLabs EVS subscription) may cap
+    playback quality similarly to how Linux browsers already cap Netflix
+    at ~720p without hardware-backed Widevine L1 — expected to be a wash
+    against the browser-based approach, not a regression, but not yet
+    verified against real playback.
+  - ~~Original plan: shell out to an installed Chromium-based browser with
+    `--app=<url>`, avoid embedding a browser engine at all, accept that
+    users need Brave/Chrome/Edge already installed.~~
 - Steam Input controller config bundling (dpad → Tab/Arrows, A → Enter,
   B → Escape) so sites are navigable without a mouse/keyboard. This is a
   Steam feature (works on any non-Steam shortcut), not something the app

@@ -1,0 +1,13 @@
+{
+  "name": "steam-webapp-kiosk-launcher",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Frameless kiosk-mode window that loads a URL with Widevine DRM support, launched by Steam non-Steam shortcuts.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "github:castlabs/electron-releases#v43.0.0+wvcus"
+  }
+}

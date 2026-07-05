@@ -16,7 +16,8 @@ import steam_paths
 
 ASSET_DIR = os.path.join(os.path.dirname(__file__), "assets")
 APPLICATIONS_DIR = os.path.expanduser("~/.local/share/applications")
-XDG_OPEN = "/usr/bin/xdg-open"
+KIOSK_LAUNCHER_DIR = os.path.join(os.path.dirname(__file__), "kiosk-launcher")
+KIOSK_LAUNCHER_ELECTRON = os.path.join(KIOSK_LAUNCHER_DIR, "node_modules", "electron", "dist", "electron")
 
 
 def slugify(name):
@@ -91,11 +92,17 @@ GRID_FILENAMES = {
 def register_steam_shortcut(name, url, asset_paths, user_id=None):
     """Copy fetched assets into Steam's grid folder and add/update a
     non-Steam shortcut entry in shortcuts.vdf. Returns the appid."""
+    if not os.path.exists(KIOSK_LAUNCHER_ELECTRON):
+        sys.exit(
+            f"Kiosk launcher isn't built: {KIOSK_LAUNCHER_ELECTRON} not found.\n"
+            f"Run: cd {KIOSK_LAUNCHER_DIR} && npm install"
+        )
+
     userdata_dir = steam_paths.find_userdata_dir(user_id)
     grid_dir = os.path.join(userdata_dir, "config", "grid")
     os.makedirs(grid_dir, exist_ok=True)
 
-    appid = shortcuts_vdf.generate_appid(XDG_OPEN, name)
+    appid = shortcuts_vdf.generate_appid(KIOSK_LAUNCHER_ELECTRON, name)
 
     icon_dest = None
     for basename, src in asset_paths.items():
@@ -112,10 +119,10 @@ def register_steam_shortcut(name, url, asset_paths, user_id=None):
     written_appid = shortcuts_vdf.add_shortcut(
         vdf_path,
         appname=name,
-        exe=XDG_OPEN,
-        start_dir=os.path.dirname(XDG_OPEN) + "/",
+        exe=KIOSK_LAUNCHER_ELECTRON,
+        start_dir=KIOSK_LAUNCHER_DIR + "/",
         icon=icon_dest or "",
-        launch_options=url,
+        launch_options=f". {url}",
     )
     assert written_appid == appid
     print(f"\nAdded/updated Steam shortcut '{name}' (appid {appid}) in {vdf_path}")

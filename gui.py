@@ -127,7 +127,10 @@ class OnboardingWindow(Adw.ApplicationWindow):
         self.continue_button.connect("clicked", self._on_continue)
         content.append(self.continue_button)
 
-        toolbar.set_content(Gtk.ScrolledWindow(child=content, vexpand=True))
+        scrolled = Gtk.ScrolledWindow(
+            child=content, vexpand=True, propagate_natural_height=True, propagate_natural_width=True
+        )
+        toolbar.set_content(scrolled)
         self.set_content(toolbar)
 
         self._check_steam()
@@ -269,6 +272,7 @@ class MainWindow(Adw.ApplicationWindow):
 
         self.match = None
         self._search_debounce_id = None
+        self.pending_shortcuts_count = 0
 
         toolbar = Adw.ToolbarView()
 
@@ -290,6 +294,10 @@ class MainWindow(Adw.ApplicationWindow):
         self.url_entry = Adw.EntryRow(title="URL (e.g. https://netflix.com)")
         self.url_entry.connect("changed", self._on_url_changed)
         self.url_entry.connect("entry-activated", self._on_url_activated)
+        clear_button = Gtk.Button(icon_name="edit-clear-symbolic", tooltip_text="Clear", valign=Gtk.Align.CENTER)
+        clear_button.add_css_class("flat")
+        clear_button.connect("clicked", self._on_clear_url)
+        self.url_entry.add_suffix(clear_button)
         entries_group = Adw.PreferencesGroup()
         entries_group.add(self.url_entry)
         content.append(entries_group)
@@ -318,7 +326,12 @@ class MainWindow(Adw.ApplicationWindow):
         self.status_label = Gtk.Label(wrap=True)
         content.append(self.status_label)
 
-        scrolled = Gtk.ScrolledWindow(child=content, vexpand=True)
+        self.pending_label = Gtk.Label(wrap=True, css_classes=["dim-label"])
+        content.append(self.pending_label)
+
+        scrolled = Gtk.ScrolledWindow(
+            child=content, vexpand=True, propagate_natural_height=True, propagate_natural_width=True
+        )
         toolbar.set_content(scrolled)
         self.set_content(toolbar)
 
@@ -385,7 +398,7 @@ class MainWindow(Adw.ApplicationWindow):
             return
         for m in matches:
             m["name"] = cw.clean_shortcut_name(m["name"])
-            row = Adw.ActionRow(title=m["name"], subtitle="Verified" if m["verified"] else "")
+            row = Adw.ActionRow(title=m["name"])
             row.match_data = m
             self.results_list.append(row)
         self.results_group.set_visible(True)
@@ -420,10 +433,29 @@ class MainWindow(Adw.ApplicationWindow):
         threading.Thread(target=work, daemon=True).start()
 
     def _create_done(self, name, appid):
-        self._set_busy(False, f"Created '{name}' (appid {appid}). Restart Steam to see it.")
+        self._set_busy(False, f"Created '{name}' (appid {appid}).")
+        self.pending_shortcuts_count += 1
+        self._update_pending_label()
 
     def _create_failed(self, message):
         self._set_busy(False, f"Error: {message}")
+
+    def _update_pending_label(self):
+        n = self.pending_shortcuts_count
+        if n == 0:
+            self.pending_label.set_label("")
+        else:
+            self.pending_label.set_label(f"{n} shortcut{'s' if n != 1 else ''} to be added after Steam restart")
+
+    def _on_clear_url(self, _button):
+        self.url_entry.set_text("")
+        if self._search_debounce_id:
+            GLib.source_remove(self._search_debounce_id)
+            self._search_debounce_id = None
+        self.match = None
+        self.create_button.set_sensitive(False)
+        self._clear_results()
+        self._set_busy(False, "")
 
     def _on_restart_steam(self, _button):
         self.restart_steam_button.set_sensitive(False)
@@ -438,6 +470,8 @@ class MainWindow(Adw.ApplicationWindow):
     def _restart_steam_done(self):
         self.restart_steam_button.set_sensitive(True)
         self.status_label.set_label("")
+        self.pending_shortcuts_count = 0
+        self._update_pending_label()
 
 
 class Application(Adw.Application):

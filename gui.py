@@ -76,7 +76,7 @@ class OnboardingWindow(Adw.ApplicationWindow):
 
     def __init__(self, app, on_complete):
         super().__init__(application=app, title="Set Up Steam Webapp Creator")
-        self.set_default_size(640, -1)
+        self.set_default_size(700, -1)
         self.on_complete = on_complete
         self.edge_ok = False
         self.sgdb_ok = False

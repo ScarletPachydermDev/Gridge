@@ -29,5 +29,17 @@ def restart_steam():
         flatpak = shutil.which("flatpak")
         if flatpak:
             subprocess.Popen([flatpak, "run", "com.valvesoftware.Steam"])
+        return
+
+    # Prefer the launcher script at its known absolute path within the
+    # detected root over a PATH-based `steam` lookup: the script lives on
+    # the shared host filesystem either way, but the launcher binary
+    # normally installed to /usr/bin isn't visible from inside a
+    # distrobox/toolbox container (separate root filesystem, only home
+    # is shared) -- confirmed this is exactly why shutil.which("steam")
+    # found nothing there even though native Steam is genuinely installed.
+    launcher = os.path.join(root, "steam.sh")
+    if os.path.exists(launcher):
+        subprocess.Popen([launcher, "-silent"])
     elif shutil.which("steam"):
         subprocess.Popen(["steam", "-silent"])

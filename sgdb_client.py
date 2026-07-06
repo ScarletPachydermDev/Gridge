@@ -4,6 +4,8 @@ import os
 import urllib.request
 import urllib.parse
 
+import config
+
 API_BASE = "https://www.steamgriddb.com/api/v2"
 
 # Steam's non-Steam-shortcut grid folder wants these shapes:
@@ -31,10 +33,11 @@ def _load_dotenv():
 
 def _api_key():
     _load_dotenv()
-    key = os.environ.get("STEAMGRIDDB_API_KEY")
+    key = os.environ.get("STEAMGRIDDB_API_KEY") or config.get_sgdb_api_key()
     if not key:
         raise SGDBError(
-            "Set STEAMGRIDDB_API_KEY in your environment "
+            "No SteamGridDB API key configured. Set it in the app's Settings, "
+            "or set STEAMGRIDDB_API_KEY in your environment for CLI use "
             "(get a free key at steamgriddb.com/profile/preferences/api)"
         )
     return key

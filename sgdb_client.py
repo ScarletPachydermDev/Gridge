@@ -51,7 +51,7 @@ def _get(path, params=None):
         url,
         headers={
             "Authorization": f"Bearer {_api_key()}",
-            "User-Agent": "steam-webapp-creator/0.1",
+            "User-Agent": "gridge/0.1",
         },
     )
     try:
@@ -121,7 +121,7 @@ def extract_largest_png_from_ico(ico_bytes):
 
 
 def download(url, dest_path):
-    req = urllib.request.Request(url, headers={"User-Agent": "steam-webapp-creator/0.1"})
+    req = urllib.request.Request(url, headers={"User-Agent": "gridge/0.1"})
     with urllib.request.urlopen(req, timeout=30) as resp:
         data = resp.read()
     with open(dest_path, "wb") as f:

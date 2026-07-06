@@ -8,6 +8,7 @@ SGDB key) before the main window.
 import re
 import subprocess
 import threading
+from datetime import date
 from urllib.parse import urlparse
 
 import gi
@@ -20,12 +21,18 @@ import create_webapp as cw  # noqa: E402
 import config  # noqa: E402
 import edge_launcher  # noqa: E402
 import sgdb_client as sgdb  # noqa: E402
+import shortcuts_export  # noqa: E402
 import steam_paths  # noqa: E402
 import steam_restart  # noqa: E402
 
+APP_NAME = "Gridge"
 SGDB_KEY_URL = "https://steamgriddb.com/profile/preferences/api"
 DONATE_URL = "https://example.com/donate"  # TODO: replace with the real donate link
 STEAM_DOWNLOAD_URL = "https://store.steampowered.com/about/"
+EDGE_REASON_TEXT = (
+    "Edge is the only Chromium browser on Linux licensed for Dolby "
+    "Digital Plus/Atmos audio -- other browsers can't play it."
+)
 
 # Only a close button -- no minimize/maximize -- on every window in the app.
 NO_MINMAX_DECORATION_LAYOUT = ":close"
@@ -129,12 +136,13 @@ class OnboardingWindow(Adw.ApplicationWindow):
     three pass, hands off to on_complete() to open the main window."""
 
     def __init__(self, app, on_complete):
-        super().__init__(application=app, title="Set Up Steam Webapp Creator")
+        super().__init__(application=app, title=f"Set Up {APP_NAME}")
         self.set_default_size(700, -1)
         self.on_complete = on_complete
         self.edge_ok = False
         self.sgdb_ok = False
         self._key_debounce_id = None
+        self.imported_count = 0
 
         toolbar = Adw.ToolbarView()
         header = Adw.HeaderBar()
@@ -164,11 +172,20 @@ class OnboardingWindow(Adw.ApplicationWindow):
         group.add(self.steam_row)
 
         self.edge_row = Adw.ActionRow(title="Microsoft Edge")
+        edge_info_label = Gtk.Label(label=EDGE_REASON_TEXT, wrap=True, max_width_chars=32, margin_top=6, margin_bottom=6, margin_start=6, margin_end=6)
+        edge_info_popover = Gtk.Popover(child=edge_info_label)
+        edge_info_button = Gtk.MenuButton(
+            icon_name="help-about-symbolic",
+            tooltip_text="Why Edge?",
+            valign=Gtk.Align.CENTER,
+            popover=edge_info_popover,
+        )
         self.edge_status = Gtk.Label()
         self.edge_install_button = Gtk.Button(label="Install Flatpak Microsoft Edge", valign=Gtk.Align.CENTER)
         self.edge_install_button.connect("clicked", self._on_install_edge)
         self.edge_row.add_suffix(self.edge_status)
         self.edge_row.add_suffix(self.edge_install_button)
+        self.edge_row.add_suffix(edge_info_button)
         group.add(self.edge_row)
 
         self.key_row = Adw.PasswordEntryRow(title="SteamGridDB API key")
@@ -192,6 +209,20 @@ class OnboardingWindow(Adw.ApplicationWindow):
 
         self.status_label = Gtk.Label(wrap=True)
         content.append(self.status_label)
+
+        export_import_box = Gtk.Box(
+            orientation=Gtk.Orientation.HORIZONTAL,
+            spacing=6,
+            halign=Gtk.Align.CENTER,
+            margin_bottom=6,
+        )
+        self.export_button = Gtk.Button(label="Export Shortcuts...")
+        self.export_button.connect("clicked", self._on_export)
+        self.import_button = Gtk.Button(label="Import Shortcuts...", sensitive=False)
+        self.import_button.connect("clicked", self._on_import)
+        export_import_box.append(self.export_button)
+        export_import_box.append(self.import_button)
+        content.append(export_import_box)
 
         self.continue_button = Gtk.Button(
             label="Continue",
@@ -231,7 +262,9 @@ class OnboardingWindow(Adw.ApplicationWindow):
             label.set_markup('<span foreground="#e5a50a" weight="bold" size="large">⚠</span>')
 
     def _update_continue_button(self):
-        self.continue_button.set_sensitive(self.steam_ok and self.edge_ok and self.sgdb_ok)
+        all_ok = self.steam_ok and self.edge_ok and self.sgdb_ok
+        self.continue_button.set_sensitive(all_ok)
+        self.import_button.set_sensitive(all_ok)
 
     def _check_steam(self):
         try:
@@ -358,14 +391,111 @@ class OnboardingWindow(Adw.ApplicationWindow):
         self.status_label.set_label(f"Error: {message}")
         self._update_continue_button()
 
+    def _on_export(self, _button):
+        dialog = Gtk.FileChooserNative(
+            title="Export Shortcuts",
+            transient_for=self,
+            action=Gtk.FileChooserAction.SAVE,
+        )
+        dialog.set_current_name(f"{APP_NAME.lower()}-shortcuts-{date.today().isoformat()}.zip")
+        zip_filter = Gtk.FileFilter()
+        zip_filter.set_name("Zip archive")
+        zip_filter.add_pattern("*.zip")
+        dialog.add_filter(zip_filter)
+        dialog.connect("response", self._on_export_response)
+        dialog.show()
+
+    def _on_export_response(self, dialog, response):
+        if response != Gtk.ResponseType.ACCEPT:
+            dialog.destroy()
+            return
+        path = dialog.get_file().get_path()
+        dialog.destroy()
+        if not path.endswith(".zip"):
+            path += ".zip"
+
+        self.export_button.set_sensitive(False)
+        self.status_label.set_label("Exporting shortcuts...")
+
+        def work():
+            try:
+                count = shortcuts_export.export_shortcuts(path)
+                GLib.idle_add(self._export_done, count, None)
+            except Exception as e:
+                GLib.idle_add(self._export_done, 0, str(e))
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _export_done(self, count, error):
+        self.export_button.set_sensitive(True)
+        self.status_label.set_label("")
+        if error:
+            dialog = Adw.AlertDialog(heading="Export Failed", body=error)
+        else:
+            dialog = Adw.AlertDialog(
+                heading="Export Complete",
+                body=f"Exported {count} shortcut{'s' if count != 1 else ''}.",
+            )
+        dialog.add_response("ok", "OK")
+        dialog.present(self)
+
+    def _on_import(self, _button):
+        dialog = Gtk.FileChooserNative(
+            title="Import Shortcuts",
+            transient_for=self,
+            action=Gtk.FileChooserAction.OPEN,
+        )
+        zip_filter = Gtk.FileFilter()
+        zip_filter.set_name("Zip archive")
+        zip_filter.add_pattern("*.zip")
+        dialog.add_filter(zip_filter)
+        dialog.connect("response", self._on_import_response)
+        dialog.show()
+
+    def _on_import_response(self, dialog, response):
+        if response != Gtk.ResponseType.ACCEPT:
+            dialog.destroy()
+            return
+        path = dialog.get_file().get_path()
+        dialog.destroy()
+
+        self.import_button.set_sensitive(False)
+        self.status_label.set_label("Importing shortcuts...")
+
+        def work():
+            try:
+                count = shortcuts_export.import_shortcuts(path)
+                GLib.idle_add(self._import_done, count, None)
+            except Exception as e:
+                GLib.idle_add(self._import_done, 0, str(e))
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _import_done(self, count, error):
+        self._update_continue_button()
+        self.status_label.set_label("")
+        if error:
+            dialog = Adw.AlertDialog(heading="Import Failed", body=error)
+            dialog.add_response("ok", "OK")
+            dialog.present(self)
+            return
+        self.imported_count += count
+        dialog = Adw.AlertDialog(
+            heading="Import Complete",
+            body=f"Imported {count} shortcut{'s' if count != 1 else ''}. "
+            "They'll appear in Steam after a restart.",
+        )
+        dialog.add_response("ok", "OK")
+        dialog.present(self)
+
     def _on_continue(self, _button):
         self.close()
-        self.on_complete()
+        self.on_complete(self.imported_count)
 
 
 class MainWindow(Adw.ApplicationWindow):
     def __init__(self, app):
-        super().__init__(application=app, title="Steam Webapp Creator")
+        super().__init__(application=app, title=APP_NAME)
         self.set_default_size(480, -1)
 
         self.match = None
@@ -449,7 +579,12 @@ class MainWindow(Adw.ApplicationWindow):
         Gtk.show_uri(self, DONATE_URL, 0)
 
     def _on_preferences(self, _action, _param):
-        OnboardingWindow(self.get_application(), on_complete=lambda: None).present()
+        def on_complete(imported_count):
+            if imported_count:
+                self.pending_shortcuts_count += imported_count
+                self._update_pending_label()
+
+        OnboardingWindow(self.get_application(), on_complete=on_complete).present()
 
     def _set_busy(self, busy, message=""):
         self.spinner.set_spinning(busy)
@@ -589,7 +724,7 @@ class MainWindow(Adw.ApplicationWindow):
 
 class Application(Adw.Application):
     def __init__(self):
-        super().__init__(application_id="io.github.ScarletPachyderm.SteamWebappCreator")
+        super().__init__(application_id="io.github.ScarletPachyderm.Gridge")
         self._css_installed = False
 
     def do_activate(self):
@@ -605,7 +740,14 @@ class Application(Adw.Application):
         if _all_requirements_met():
             MainWindow(self).present()
         else:
-            OnboardingWindow(self, on_complete=lambda: MainWindow(self).present()).present()
+            OnboardingWindow(self, on_complete=self._launch_main).present()
+
+    def _launch_main(self, imported_count=0):
+        win = MainWindow(self)
+        if imported_count:
+            win.pending_shortcuts_count = imported_count
+            win._update_pending_label()
+        win.present()
 
 
 def main():

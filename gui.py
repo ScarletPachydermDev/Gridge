@@ -5,6 +5,7 @@ github.com/unrud/video-downloader -- single window, no bells and
 whistles. First run shows a 3-step onboarding check (Steam, Edge,
 SGDB key) before the main window.
 """
+import re
 import subprocess
 import threading
 from urllib.parse import urlparse
@@ -52,7 +53,26 @@ def guess_name_from_url(url):
     return base.replace("-", " ").title()
 
 
-def _flatpak_install_user(app_id):
+def _all_requirements_met():
+    """Live-checked every startup, not cached -- the user may have
+    uninstalled Steam/Edge or cleared the SGDB key since the app last
+    ran, and onboarding should reappear if so rather than trusting a
+    stale "already done" flag."""
+    try:
+        steam_paths.find_steam_root()
+    except steam_paths.SteamNotFoundError:
+        return False
+    try:
+        edge_launcher.find_edge()
+    except edge_launcher.EdgeNotFoundError:
+        return False
+    return bool(config.get_sgdb_api_key())
+
+
+_PROGRESS_RE = re.compile(r"(\d+)%")
+
+
+def _flatpak_install_user(app_id, progress_callback=None):
     """Install a Flatpak app in --user scope, adding a user-level flathub
     remote first if one doesn't already exist. A system-wide install
     needs polkit authorization that regular user accounts often don't
@@ -60,19 +80,53 @@ def _flatpak_install_user(app_id):
     desktop and a real Steam Deck -- SteamOS blocks system-scope changes
     while its read-only OS protection is enabled, which it is by
     default); --user sidesteps all of this, confirmed working on a real
-    Deck. Returns (ok, stderr)."""
+    Deck. Returns (ok, output_tail).
+
+    If given, progress_callback(fraction) is called synchronously from
+    this (caller's) thread as flatpak's own percentage progress updates
+    are parsed from its output -- callers running this in a background
+    thread need to marshal it back to the main thread themselves (e.g.
+    via GLib.idle_add) before touching any widget."""
     subprocess.run(
         ["flatpak", "remote-add", "--user", "--if-not-exists", "flathub", "https://flathub.org/repo/flathub.flatpakrepo"],
         capture_output=True,
     )
-    result = subprocess.run(["flatpak", "install", "--user", "-y", "flathub", app_id], capture_output=True, text=True)
-    return result.returncode == 0, result.stderr
+    process = subprocess.Popen(
+        ["flatpak", "install", "--user", "-y", "flathub", app_id],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1,
+    )
+
+    # flatpak's CLI progress bar uses \r to overwrite the same line in a
+    # terminal, but falls back to \n-separated updates when stdout isn't a
+    # TTY (as it is here, piped) -- treat either as a line terminator so
+    # this works regardless of which one shows up.
+    tail_lines = []
+    buf = ""
+    while True:
+        chunk = process.stdout.read(1)
+        if chunk == "":
+            break
+        if chunk in ("\r", "\n"):
+            if buf.strip():
+                tail_lines.append(buf)
+                match = _PROGRESS_RE.search(buf)
+                if match and progress_callback:
+                    progress_callback(int(match.group(1)) / 100.0)
+            buf = ""
+        else:
+            buf += chunk
+    process.wait()
+    return process.returncode == 0, "\n".join(tail_lines[-10:])
 
 
 class OnboardingWindow(Adw.ApplicationWindow):
-    """First-run setup: Steam installed, Edge installed, SGDB key set.
-    Once all three pass, saves onboarding_complete and hands off to
-    on_complete() to open the main window."""
+    """Setup check: Steam installed, Edge installed, SGDB key set. Shown
+    whenever _all_requirements_met() fails at startup (checked live every
+    launch, not cached), or reopened from the Preferences menu. Once all
+    three pass, hands off to on_complete() to open the main window."""
 
     def __init__(self, app, on_complete):
         super().__init__(application=app, title="Set Up Steam Webapp Creator")
@@ -125,6 +179,9 @@ class OnboardingWindow(Adw.ApplicationWindow):
         group.add(self.key_row)
 
         content.append(group)
+
+        self.install_progress = Gtk.ProgressBar(visible=False, show_text=True)
+        content.append(self.install_progress)
 
         link = Gtk.Label(
             label=f'<a href="{SGDB_KEY_URL}">Get a free key at steamgriddb.com</a>',
@@ -196,9 +253,11 @@ class OnboardingWindow(Adw.ApplicationWindow):
         self.steam_install_native_button.set_sensitive(False)
         self.steam_install_flatpak_button.set_sensitive(False)
         self.status_label.set_label("Installing Steam...")
+        self.install_progress.set_fraction(0.0)
+        self.install_progress.set_visible(True)
 
         def work():
-            ok, err = _flatpak_install_user("com.valvesoftware.Steam")
+            ok, err = _flatpak_install_user("com.valvesoftware.Steam", progress_callback=self._on_install_progress)
             GLib.idle_add(self._install_steam_done, ok, err)
 
         threading.Thread(target=work, daemon=True).start()
@@ -206,6 +265,7 @@ class OnboardingWindow(Adw.ApplicationWindow):
     def _install_steam_done(self, ok, error_output):
         self.steam_install_native_button.set_sensitive(True)
         self.steam_install_flatpak_button.set_sensitive(True)
+        self.install_progress.set_visible(False)
         if ok:
             self.status_label.set_label("")
             self._check_steam()
@@ -225,18 +285,24 @@ class OnboardingWindow(Adw.ApplicationWindow):
         self._set_status(self.edge_status, self.edge_ok)
         self._update_continue_button()
 
+    def _on_install_progress(self, fraction):
+        GLib.idle_add(self.install_progress.set_fraction, fraction)
+
     def _on_install_edge(self, _button):
         self.edge_install_button.set_sensitive(False)
         self.status_label.set_label("Installing Microsoft Edge...")
+        self.install_progress.set_fraction(0.0)
+        self.install_progress.set_visible(True)
 
         def work():
-            ok, err = _flatpak_install_user("com.microsoft.Edge")
+            ok, err = _flatpak_install_user("com.microsoft.Edge", progress_callback=self._on_install_progress)
             GLib.idle_add(self._install_edge_done, ok, err)
 
         threading.Thread(target=work, daemon=True).start()
 
     def _install_edge_done(self, ok, error_output):
         self.edge_install_button.set_sensitive(True)
+        self.install_progress.set_visible(False)
         if ok:
             self.status_label.set_label("")
             self._check_edge()
@@ -293,7 +359,6 @@ class OnboardingWindow(Adw.ApplicationWindow):
         self._update_continue_button()
 
     def _on_continue(self, _button):
-        config.set_onboarding_complete()
         self.close()
         self.on_complete()
 
@@ -537,7 +602,7 @@ class Application(Adw.Application):
             win.present()
             return
 
-        if config.is_onboarding_complete():
+        if _all_requirements_met():
             MainWindow(self).present()
         else:
             OnboardingWindow(self, on_complete=lambda: MainWindow(self).present()).present()

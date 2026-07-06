@@ -13,7 +13,7 @@ import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Adw, GLib, Gtk  # noqa: E402
+from gi.repository import Adw, Gio, GLib, Gtk  # noqa: E402
 
 import create_webapp as cw  # noqa: E402
 import config  # noqa: E402
@@ -23,6 +23,10 @@ import steam_paths  # noqa: E402
 import steam_restart  # noqa: E402
 
 SGDB_KEY_URL = "https://steamgriddb.com/profile/preferences/api"
+DONATE_URL = "https://example.com/donate"  # TODO: replace with the real donate link
+
+# Only a close button -- no minimize/maximize -- on every window in the app.
+NO_MINMAX_DECORATION_LAYOUT = ":close"
 
 
 def guess_name_from_url(url):
@@ -32,38 +36,6 @@ def guess_name_from_url(url):
     host = host.removeprefix("www.")
     base = host.split(".")[0]
     return base.replace("-", " ").title()
-
-
-class SettingsDialog(Adw.Window):
-    def __init__(self, parent):
-        super().__init__(transient_for=parent, modal=True, title="Settings", default_width=420, default_height=220)
-
-        toolbar = Adw.ToolbarView()
-        toolbar.add_top_bar(Adw.HeaderBar())
-
-        page = Adw.PreferencesPage()
-        group = Adw.PreferencesGroup(
-            title="SteamGridDB",
-            description="Get a free key at steamgriddb.com/profile/preferences/api",
-        )
-        self.key_row = Adw.PasswordEntryRow(title="API key")
-        existing = config.get_sgdb_api_key()
-        if existing:
-            self.key_row.set_text(existing)
-        self.key_row.connect("entry-activated", self._on_save)
-        group.add(self.key_row)
-
-        save_button = Gtk.Button(label="Save", css_classes=["suggested-action"], halign=Gtk.Align.END)
-        save_button.connect("clicked", self._on_save)
-        group.add(save_button)
-
-        page.add(group)
-        toolbar.set_content(page)
-        self.set_content(toolbar)
-
-    def _on_save(self, *_args):
-        config.set_sgdb_api_key(self.key_row.get_text().strip())
-        self.close()
 
 
 class OnboardingWindow(Adw.ApplicationWindow):
@@ -80,7 +52,9 @@ class OnboardingWindow(Adw.ApplicationWindow):
         self._key_debounce_id = None
 
         toolbar = Adw.ToolbarView()
-        toolbar.add_top_bar(Adw.HeaderBar())
+        header = Adw.HeaderBar()
+        header.set_decoration_layout(NO_MINMAX_DECORATION_LAYOUT)
+        toolbar.add_top_bar(header)
 
         content = Gtk.Box(
             orientation=Gtk.Orientation.VERTICAL,
@@ -277,9 +251,21 @@ class MainWindow(Adw.ApplicationWindow):
         toolbar = Adw.ToolbarView()
 
         header = Adw.HeaderBar()
-        settings_button = Gtk.Button(icon_name="emblem-system-symbolic", tooltip_text="Settings")
-        settings_button.connect("clicked", self._open_settings)
-        header.pack_end(settings_button)
+        header.set_decoration_layout(NO_MINMAX_DECORATION_LAYOUT)
+
+        donate_action = Gio.SimpleAction.new("donate", None)
+        donate_action.connect("activate", self._on_donate)
+        self.add_action(donate_action)
+
+        preferences_action = Gio.SimpleAction.new("preferences", None)
+        preferences_action.connect("activate", self._on_preferences)
+        self.add_action(preferences_action)
+
+        menu = Gio.Menu()
+        menu.append("Donate", "win.donate")
+        menu.append("Preferences", "win.preferences")
+        menu_button = Gtk.MenuButton(icon_name="emblem-system-symbolic", tooltip_text="Menu", menu_model=menu)
+        header.pack_end(menu_button)
         toolbar.add_top_bar(header)
 
         content = Gtk.Box(
@@ -335,8 +321,11 @@ class MainWindow(Adw.ApplicationWindow):
         toolbar.set_content(scrolled)
         self.set_content(toolbar)
 
-    def _open_settings(self, _button):
-        SettingsDialog(self).present()
+    def _on_donate(self, _action, _param):
+        Gtk.show_uri(self, DONATE_URL, 0)
+
+    def _on_preferences(self, _action, _param):
+        OnboardingWindow(self.get_application(), on_complete=lambda: None).present()
 
     def _set_busy(self, busy, message=""):
         self.spinner.set_spinning(busy)

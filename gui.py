@@ -975,7 +975,9 @@ class MainWindow(Adw.ApplicationWindow):
         self._empty_results_list()
         for i, m in enumerate(matches):
             m["name"] = cw.clean_shortcut_name(m["name"])
-            row = Adw.ActionRow(title=m["name"], css_classes=["zebra-even" if i % 2 == 0 else "zebra-odd"])
+            row = Adw.ActionRow(
+                title=m["name"], activatable=True, css_classes=["zebra-even" if i % 2 == 0 else "zebra-odd"]
+            )
             row.match_data = m
             self.results_list.append(row)
         self.results_list.select_row(self.results_list.get_row_at_index(0))

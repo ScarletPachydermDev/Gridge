@@ -7,6 +7,7 @@ import argparse
 import os
 import re
 import shutil
+import subprocess
 import sys
 from urllib.parse import urlparse
 
@@ -71,6 +72,23 @@ def is_gridge_launch_wrapper(exe):
     return exe in (LOCAL_LAUNCH_WRAPPER, FLATPAK_LAUNCH_WRAPPER)
 
 
+def _grant_steam_flatpak_spawn_permission():
+    """flatpak-spawn --host needs D-Bus permission to talk to the
+    org.freedesktop.Flatpak portal, which Steam's own Flathub manifest
+    doesn't request by default (confirmed via Steam's own logs: "Portal
+    call failed: ServiceUnknown ... --host only works when the Flatpak
+    is allowed to talk to org.freedesktop.Flatpak" -- Valve never
+    designed Steam's Flatpak build to spawn arbitrary host processes for
+    non-Steam shortcuts). Gridge runs unsandboxed, so it can grant this
+    itself rather than requiring the user to run `flatpak override`
+    manually. Idempotent; a no-op if already granted. Takes effect on
+    Steam's next launch, not an already-running instance."""
+    subprocess.run(
+        ["flatpak", "override", "--user", "com.valvesoftware.Steam", "--talk-name=org.freedesktop.Flatpak"],
+        capture_output=True,
+    )
+
+
 def get_launch_wrapper_path():
     """Return the launch-browser.sh path to use as this shortcut's exe,
     accounting for whether Steam itself is Flatpak-installed."""
@@ -82,6 +100,7 @@ def get_launch_wrapper_path():
     if not using_flatpak_steam:
         return LOCAL_LAUNCH_WRAPPER
 
+    _grant_steam_flatpak_spawn_permission()
     os.makedirs(FLATPAK_LAUNCHER_DIR, exist_ok=True)
     src_dir = os.path.dirname(__file__)
     for name in _LAUNCHER_COPY_ITEMS:

@@ -85,17 +85,15 @@ ARTWORK_CATEGORIES = [
 ]
 _ARTWORK_ROW_SPACING = 4
 
-# Estimate of the artwork panel's usable width at the window's default
-# size (1280 wide, minus the left column's fixed width, the separator,
-# and both sides' margins) -- used to compute exactly how many cells
-# each category's row can show without needing to scroll. A fixed
-# skeleton-padding count either overflowed (an all-skeleton row could
-# need scrolling with nothing to scroll to) or undercounted (the window
-# visibly grew once real art arrived and needed more cells than the
-# skeleton state had reserved) -- computing it once from the same
-# layout constants used to build the window keeps skeleton-only and
-# populated states pixel-identical in total width.
-_PANEL_WIDTH_ESTIMATE = 1280 - 460 - 40
+# Overhead subtracted from the window's live, actual width/height
+# (self.get_width()/get_height(), not a fixed guess) to estimate how
+# much is left for the artwork panel's rows and the results list --
+# left column's fixed width + separator, and each side's own panel
+# margins/chrome (header bar, url entry, hint label, buttons/status/
+# pending label below the results list).
+_ARTWORK_PANEL_OVERHEAD = 460 + 40 + 16 + 24
+_RESULTS_ROW_HEIGHT_ESTIMATE = 46
+_RESULTS_LIST_CHROME_OVERHEAD = 260
 
 
 def _install_status_css():
@@ -724,6 +722,8 @@ class MainWindow(Adw.ApplicationWindow):
         toolbar.set_content(main_box)
         self.set_content(toolbar)
 
+        self._last_known_size = None
+        self._thumbnail_cache = {}
         self._clear_results()
         self._reset_artwork_panel()
         # Bigger artwork needs more room than the default size alone
@@ -731,6 +731,31 @@ class MainWindow(Adw.ApplicationWindow):
         # -- launch maximized so nothing's off-screen from the start;
         # users can still unmaximize/resize freely afterward.
         self.maximize()
+        # A fixed-size guess can never match every real monitor (that's
+        # exactly what went wrong sizing for the 1280x800 default before
+        # actually seeing what "maximized" means on a real screen) --
+        # poll the window's own live get_width()/get_height() instead
+        # and only rebuild when they've actually changed, catching the
+        # true maximized size shortly after launch and keeping it in
+        # sync through any later manual resize too.
+        GLib.timeout_add(400, self._refresh_for_window_size)
+
+    def _refresh_for_window_size(self):
+        size = (self.get_width(), self.get_height())
+        if size == self._last_known_size:
+            return True
+        self._last_known_size = size
+
+        panel_width = size[0] - _ARTWORK_PANEL_OVERHEAD
+        for basename, _title, cell_w, _cell_h in ARTWORK_CATEGORIES:
+            row = self.artwork_rows[basename]
+            row["visible_count"] = max(1, (panel_width + _ARTWORK_ROW_SPACING) // (cell_w + _ARTWORK_ROW_SPACING))
+            self._render_artwork_row(basename)
+
+        if not self._showing_real_results:
+            self._clear_results()
+
+        return True
 
     def _build_artwork_panel(self):
         """Right-hand artwork picker: one horizontally-scrolling row per
@@ -768,11 +793,14 @@ class MainWindow(Adw.ApplicationWindow):
             section.append(scroller)
             panel.append(section)
 
-            available = _PANEL_WIDTH_ESTIMATE - 16 - 24
-            visible_count = max(1, (available + _ARTWORK_ROW_SPACING) // (cell_w + _ARTWORK_ROW_SPACING))
-            self.artwork_rows[basename] = {
-                "box": row_box, "cell_w": cell_w, "cell_h": cell_h, "visible_count": visible_count,
-            }
+            # visible_count starts as a placeholder -- a fixed estimate
+            # can never be right for every real screen (confirmed:
+            # maximizing on an actual monitor doesn't land on the
+            # 1280x800 default this was first computed from), so the
+            # real value is set by _refresh_for_window_size() once the
+            # window's actual live width is known, and kept in sync as
+            # it's resized/maximized afterward.
+            self.artwork_rows[basename] = {"box": row_box, "cell_w": cell_w, "cell_h": cell_h, "visible_count": 1}
 
         return panel
 
@@ -792,8 +820,21 @@ class MainWindow(Adw.ApplicationWindow):
             child = nxt
 
         candidates = self.artwork_candidates[basename]
+        selected = self.artwork_selected.get(basename)
+        if selected is None and candidates:
+            # No explicit pick yet -- default to the first result rather
+            # than requiring everyone to manually curate every category
+            # just to create a shortcut. SGDB has no reliable "most
+            # popular" signal to sort by instead (its score/upvote
+            # fields are confirmed to always read 0 via the API), so
+            # "first returned" is as sensible a default as any; clicking
+            # a different one still overrides it.
+            selected = candidates[0]
+            self.artwork_selected[basename] = selected
+
         for candidate in candidates:
-            box.append(self._make_artwork_cell(basename, candidate, row["cell_w"], row["cell_h"]))
+            is_selected = candidate is selected
+            box.append(self._make_artwork_cell(basename, candidate, row["cell_w"], row["cell_h"], is_selected))
 
         # Top up to visible_count total cells (real + skeleton), never
         # more -- an all-skeleton row is exactly visible_count wide, so
@@ -806,9 +847,14 @@ class MainWindow(Adw.ApplicationWindow):
             box.append(self._make_skeleton_cell(row["cell_w"], row["cell_h"]))
 
     def _make_skeleton_cell(self, w, h):
-        return Gtk.Box(css_classes=["artwork-skeleton"], width_request=w, height_request=h)
+        # Also carries artwork-cell (not just artwork-skeleton) so it
+        # reserves the exact same 3px transparent border real cells
+        # always have -- without this, a skeleton cell rendered a few
+        # pixels smaller than a real one, causing a visible resize the
+        # moment artwork replaced it.
+        return Gtk.Box(css_classes=["artwork-skeleton", "artwork-cell"], width_request=w, height_request=h)
 
-    def _make_artwork_cell(self, basename, candidate, w, h):
+    def _make_artwork_cell(self, basename, candidate, w, h, selected=False):
         # CONTAIN, not COVER -- COVER crops to fill the cell, and actual
         # artwork aspect ratios don't always match these fixed cell
         # sizes exactly (confirmed: logos/icons were visibly cropped).
@@ -820,7 +866,8 @@ class MainWindow(Adw.ApplicationWindow):
         # empty-state placeholders use, instead of camouflaging into
         # whatever's behind the window (confirmed: white/dark logos were
         # nearly invisible against the app background).
-        overlay = Gtk.Overlay(child=picture, css_classes=["artwork-cell", "artwork-skeleton"])
+        cell_classes = ["artwork-cell", "artwork-skeleton"] + (["selected"] if selected else [])
+        overlay = Gtk.Overlay(child=picture, css_classes=cell_classes)
 
         check = Gtk.Label(
             label="✓",
@@ -829,7 +876,7 @@ class MainWindow(Adw.ApplicationWindow):
             valign=Gtk.Align.END,
             margin_end=4,
             margin_bottom=4,
-            visible=False,
+            visible=selected,
         )
         overlay.add_overlay(check)
 
@@ -858,6 +905,15 @@ class MainWindow(Adw.ApplicationWindow):
         self.artwork_selected[basename] = candidate
 
     def _load_thumbnail_async(self, url, picture):
+        # A window resize re-renders every row from scratch (see
+        # _refresh_for_window_size), which would otherwise re-download
+        # every already-loaded thumbnail each time -- caching by URL
+        # means only genuinely new candidates ever hit the network.
+        cached = self._thumbnail_cache.get(url)
+        if cached is not None:
+            picture.set_paintable(cached)
+            return
+
         def work():
             try:
                 req = urllib.request.Request(url, headers={"User-Agent": "gridge/0.1"})
@@ -865,15 +921,16 @@ class MainWindow(Adw.ApplicationWindow):
                     data = resp.read()
             except Exception:
                 return
-            GLib.idle_add(self._set_thumbnail, picture, data)
+            GLib.idle_add(self._set_thumbnail, url, picture, data)
 
         threading.Thread(target=work, daemon=True).start()
 
-    def _set_thumbnail(self, picture, data):
+    def _set_thumbnail(self, url, picture, data):
         try:
             texture = Gdk.Texture.new_from_bytes(GLib.Bytes.new(data))
         except GLib.Error:
             return
+        self._thumbnail_cache[url] = texture
         picture.set_paintable(texture)
 
     def _fetch_artwork(self, match):
@@ -955,10 +1012,16 @@ class MainWindow(Adw.ApplicationWindow):
 
     def _clear_results(self):
         """Reset the results list to its empty, striped placeholder state
-        (5 inert rows) rather than leaving it truly blank -- that made the
-        reserved space look like a dead gray box before any search."""
+        rather than leaving it truly blank -- that made the reserved
+        space look like a dead gray box before any search. Row count is
+        computed from the window's actual live height (a fixed count
+        left a visible gap of non-striped blank space once the window
+        was maximized on a real, often much taller, screen)."""
+        self._showing_real_results = False
         self._empty_results_list()
-        for i in range(5):
+        available = self.get_height() - _RESULTS_LIST_CHROME_OVERHEAD
+        row_count = max(5, available // _RESULTS_ROW_HEIGHT_ESTIMATE)
+        for i in range(row_count):
             # Same widget type as a real match row (Adw.ActionRow), not a
             # bare Gtk.Box -- a plain box doesn't carry Adwaita's row
             # padding, so the placeholder rows came out visibly thinner
@@ -1023,6 +1086,7 @@ class MainWindow(Adw.ApplicationWindow):
         if not matches:
             self._clear_results()
             return
+        self._showing_real_results = True
         self._empty_results_list()
         for i, m in enumerate(matches):
             m["name"] = cw.clean_shortcut_name(m["name"])

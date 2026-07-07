@@ -648,6 +648,7 @@ class MainWindow(Adw.ApplicationWindow):
         self.results_group = Adw.PreferencesGroup(title="SGDB matches")
         self.results_list = Gtk.ListBox(css_classes=["boxed-list"], selection_mode=Gtk.SelectionMode.SINGLE)
         self.results_list.connect("row-selected", self._on_row_selected)
+        self.results_list.connect("row-activated", self._on_row_activated)
         # Reserve room for ~5 rows even when empty, so the buttons/status
         # below don't jump up and down as a search starts/clears -- only
         # vexpand (not a height cap) so the list still grows if the user
@@ -982,10 +983,17 @@ class MainWindow(Adw.ApplicationWindow):
     def _on_row_selected(self, _listbox, row):
         self.match = row.match_data if row else None
         self._update_create_button()
-        if self.match:
-            self._fetch_artwork(self.match)
-        else:
+        if not self.match:
             self._reset_artwork_panel()
+
+    def _on_row_activated(self, _listbox, row):
+        # Distinct from "row-selected": this only fires on an actual
+        # click/activation (even re-clicking an already-selected row),
+        # never from the automatic first-row select_row() call after a
+        # search -- artwork should only ever load once the user
+        # deliberately picks a match, not for whatever landed on top.
+        if row and row.match_data:
+            self._fetch_artwork(row.match_data)
 
     def _on_create(self, _button):
         resolved = resolve_url_input(self.url_entry.get_text())

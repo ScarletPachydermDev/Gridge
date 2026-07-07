@@ -686,12 +686,16 @@ class MainWindow(Adw.ApplicationWindow):
         reserved space look like a dead gray box before any search."""
         self._empty_results_list()
         for i in range(5):
-            row = Gtk.ListBoxRow(
+            # Same widget type as a real match row (Adw.ActionRow), not a
+            # bare Gtk.Box -- a plain box doesn't carry Adwaita's row
+            # padding, so the placeholder rows came out visibly thinner
+            # than actual results instead of matching their height.
+            row = Adw.ActionRow(
+                title="",
                 selectable=False,
                 activatable=False,
                 css_classes=["zebra-even" if i % 2 == 0 else "zebra-odd"],
             )
-            row.set_child(Gtk.Box(margin_top=10, margin_bottom=10))
             self.results_list.append(row)
 
     def _on_url_changed(self, _entry):

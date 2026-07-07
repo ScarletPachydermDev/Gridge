@@ -48,6 +48,28 @@ _FRE_SEED = {
     "new_device_fre": {"has_user_seen_new_fre": True},
 }
 
+# Confirmed on real hardware: even with FRE suppressed, a fresh profile
+# still auto-opens an "Update complete!" tour tab the first time Edge
+# runs post-install -- and critically, that tab opens as a REGULAR
+# window, not through our --app= flag at all. Since we share one Edge
+# profile across every shortcut (deliberately, so logins persist), that
+# regular-mode window becomes the first Chromium singleton for this
+# profile, and every subsequent --app= shortcut click just gets
+# funneled into it as a plain tab instead of spawning its own kiosk
+# window (matches what was observed: shortcuts opening Edge's normal
+# home page, unaffected by closing and reopening). Pre-seeding these
+# version-tracking keys to the currently-installed version prevents the
+# tour from ever deciding a "what's new" page is owed.
+def _get_flatpak_edge_version():
+    result = subprocess.run(
+        ["flatpak", "info", FLATPAK_APP_ID],
+        capture_output=True, text=True,
+    )
+    for line in result.stdout.splitlines():
+        if line.strip().startswith("Version:"):
+            return line.split(":", 1)[1].strip().split("-")[0]
+    return None
+
 INSTALL_INSTRUCTIONS = (
     "Microsoft Edge wasn't found. Install it from Flathub "
     "(flatpak install flathub com.microsoft.Edge) or from "
@@ -111,5 +133,12 @@ def suppress_first_run():
 
     if not os.path.exists(FLATPAK_LOCAL_STATE_PATH):
         os.makedirs(os.path.dirname(FLATPAK_LOCAL_STATE_PATH), exist_ok=True)
+        seed = dict(_FRE_SEED)
+        version = _get_flatpak_edge_version()
+        if version:
+            seed["browser"] = {
+                "last_seen_whats_new_page_version": version,
+                "browser_version_of_last_seen_whats_new": version,
+            }
         with open(FLATPAK_LOCAL_STATE_PATH, "w") as f:
-            json.dump(_FRE_SEED, f)
+            json.dump(seed, f)

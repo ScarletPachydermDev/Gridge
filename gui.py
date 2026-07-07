@@ -53,6 +53,12 @@ list row.zebra-even:not(:selected) { background-color: alpha(currentColor, 0.07)
 .artwork-skeleton { background-color: alpha(currentColor, 0.12); border-radius: 6px; }
 .artwork-cell { border-radius: 6px; border: 3px solid transparent; }
 .artwork-cell.selected { border-color: #3584e4; }
+/* Real cells are wrapped in a Gtk.Button for click handling -- the
+   "flat" class only strips its background/border, not its internal
+   padding, which was inflating the gap between real thumbnails well
+   past the row's own spacing (confirmed: skeleton cells, plain boxes
+   with no button, had no such gap). Zero it out entirely. */
+.artwork-button { padding: 0; margin: 0; min-width: 0; min-height: 0; }
 .artwork-check {
   background-color: #3584e4;
   color: white;
@@ -827,7 +833,7 @@ class MainWindow(Adw.ApplicationWindow):
         )
         overlay.add_overlay(check)
 
-        button = Gtk.Button(child=overlay, css_classes=["flat"])
+        button = Gtk.Button(child=overlay, css_classes=["flat", "artwork-button"])
         button.connect("clicked", self._on_artwork_clicked, basename, candidate, overlay, check)
 
         self._load_thumbnail_async(candidate["thumb"], picture)

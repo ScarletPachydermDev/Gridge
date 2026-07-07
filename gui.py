@@ -71,13 +71,25 @@ list row.zebra-even:not(:selected) { background-color: alpha(currentColor, 0.07)
 # a picker-thumbnail size -- not pixel-exact, just visually distinct
 # enough to tell the categories apart at a glance.
 ARTWORK_CATEGORIES = [
-    ("grid_vertical", "Vertical Grid", 130, 195),
-    ("grid_horizontal", "Horizontal Grid", 210, 98),
-    ("hero", "Hero", 240, 78),
+    ("grid_vertical", "Vertical Grid", 170, 255),
+    ("grid_horizontal", "Horizontal Grid", 260, 121),
+    ("hero", "Hero", 320, 104),
     ("logo", "Logo", 160, 100),
-    ("icon", "Icon", 96, 96),
+    ("icon", "Icon", 100, 100),
 ]
-_ARTWORK_PADDING_CELLS = 8
+_ARTWORK_ROW_SPACING = 4
+
+# Estimate of the artwork panel's usable width at the window's default
+# size (1280 wide, minus the left column's fixed width, the separator,
+# and both sides' margins) -- used to compute exactly how many cells
+# each category's row can show without needing to scroll. A fixed
+# skeleton-padding count either overflowed (an all-skeleton row could
+# need scrolling with nothing to scroll to) or undercounted (the window
+# visibly grew once real art arrived and needed more cells than the
+# skeleton state had reserved) -- computing it once from the same
+# layout constants used to build the window keeps skeleton-only and
+# populated states pixel-identical in total width.
+_PANEL_WIDTH_ESTIMATE = 1280 - 460 - 40
 
 
 def _install_status_css():
@@ -685,23 +697,43 @@ class MainWindow(Adw.ApplicationWindow):
         self.pending_label = Gtk.Label(wrap=True, css_classes=["dim-label"])
         content.append(self.pending_label)
 
+        # The artwork panel gets its own vertical scroller -- bigger
+        # artwork plus a smaller screen (the Deck's 1280x800, or any
+        # maximized-but-still-small window) could otherwise push the
+        # lower categories, and even the left column's Create button,
+        # off-screen entirely with no way to reach them.
+        artwork_scroller = Gtk.ScrolledWindow(
+            child=self._build_artwork_panel(),
+            hscrollbar_policy=Gtk.PolicyType.NEVER,
+            vscrollbar_policy=Gtk.PolicyType.AUTOMATIC,
+            hexpand=True,
+            vexpand=True,
+        )
+
         main_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
         main_box.append(content)
         main_box.append(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL))
-        main_box.append(self._build_artwork_panel())
+        main_box.append(artwork_scroller)
 
         toolbar.set_content(main_box)
         self.set_content(toolbar)
 
         self._clear_results()
         self._reset_artwork_panel()
+        # Bigger artwork needs more room than the default size alone
+        # reliably gives on a smaller screen (e.g. the Deck's 1280x800)
+        # -- launch maximized so nothing's off-screen from the start;
+        # users can still unmaximize/resize freely afterward.
+        self.maximize()
 
     def _build_artwork_panel(self):
         """Right-hand artwork picker: one horizontally-scrolling row per
         SGDB category, populated once a match is selected. Always
         present (not just while a match is selected) so the panel never
         pops the window's width around -- it just shows skeleton
-        placeholders in its empty state."""
+        placeholders in its empty state. The whole panel is wrapped in
+        its own vertical scroller (see caller) so bigger artwork on a
+        shorter window never pushes the Create button off-screen."""
         panel = Gtk.Box(
             orientation=Gtk.Orientation.VERTICAL,
             spacing=16,
@@ -716,10 +748,11 @@ class MainWindow(Adw.ApplicationWindow):
             section = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
             section.append(Gtk.Label(label=title, halign=Gtk.Align.START, css_classes=["heading"]))
 
-            row_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
-            # AUTOMATIC (not NEVER) so the scrollbar/scrolling only
-            # engages once real content actually overflows the row's
-            # allocated width -- a short row just sits there unscrollable.
+            row_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=_ARTWORK_ROW_SPACING)
+            # AUTOMATIC (not NEVER) so scrolling only engages once real
+            # content actually exceeds visible_count (computed below) --
+            # an all-skeleton row is sized to exactly fit, never overflows,
+            # so it never gets a scrollbar in the first place.
             scroller = Gtk.ScrolledWindow(
                 child=row_box,
                 hscrollbar_policy=Gtk.PolicyType.AUTOMATIC,
@@ -729,7 +762,11 @@ class MainWindow(Adw.ApplicationWindow):
             section.append(scroller)
             panel.append(section)
 
-            self.artwork_rows[basename] = {"box": row_box, "cell_w": cell_w, "cell_h": cell_h}
+            available = _PANEL_WIDTH_ESTIMATE - 16 - 24
+            visible_count = max(1, (available + _ARTWORK_ROW_SPACING) // (cell_w + _ARTWORK_ROW_SPACING))
+            self.artwork_rows[basename] = {
+                "box": row_box, "cell_w": cell_w, "cell_h": cell_h, "visible_count": visible_count,
+            }
 
         return panel
 
@@ -752,11 +789,14 @@ class MainWindow(Adw.ApplicationWindow):
         for candidate in candidates:
             box.append(self._make_artwork_cell(basename, candidate, row["cell_w"], row["cell_h"]))
 
-        # Pad with skeleton placeholders so a short/empty row doesn't
-        # read as broken -- an approximation (a fixed count), not a
-        # pixel-exact fill to the row's actual allocated width, which
-        # would need a size-allocate handler to compute.
-        for _ in range(max(0, _ARTWORK_PADDING_CELLS - len(candidates))):
+        # Top up to visible_count total cells (real + skeleton), never
+        # more -- an all-skeleton row is exactly visible_count wide, so
+        # it never needs to scroll, and a populated row that fits within
+        # visible_count needs no extra width either, so the window
+        # doesn't grow once real art replaces the placeholders. Only a
+        # category with genuinely more real results than visible_count
+        # ends up needing to scroll, which is the intended behavior.
+        for _ in range(max(0, row["visible_count"] - len(candidates))):
             box.append(self._make_skeleton_cell(row["cell_w"], row["cell_h"]))
 
     def _make_skeleton_cell(self, w, h):
@@ -769,7 +809,12 @@ class MainWindow(Adw.ApplicationWindow):
         # Letterboxing inside the same fixed size keeps every cell
         # (real or skeleton) identically sized either way.
         picture = Gtk.Picture(content_fit=Gtk.ContentFit.CONTAIN, width_request=w, height_request=h)
-        overlay = Gtk.Overlay(child=picture, css_classes=["artwork-cell"])
+        # artwork-skeleton (not just artwork-cell) so logos/icons with
+        # transparent backgrounds get the same neutral backdrop the
+        # empty-state placeholders use, instead of camouflaging into
+        # whatever's behind the window (confirmed: white/dark logos were
+        # nearly invisible against the app background).
+        overlay = Gtk.Overlay(child=picture, css_classes=["artwork-cell", "artwork-skeleton"])
 
         check = Gtk.Label(
             label="✓",

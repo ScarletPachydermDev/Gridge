@@ -110,6 +110,38 @@ def get_icon(game_id):
     return icons[0]["url"]
 
 
+# Candidate-list variants for the artwork picker -- each SGDB entry
+# already carries both "url" (full-res) and "thumb" (small preview), so
+# the picker can load thumbnails cheaply and only download the full
+# image for whatever the user actually selects. Capped at 10 per
+# category: SGDB can return dozens for a popular game, and a bounded
+# set keeps the picker's upfront thumbnail downloads reasonable.
+CANDIDATE_LIMIT = 10
+
+
+def get_vertical_grid_candidates(game_id):
+    return _get(f"/grids/game/{game_id}", {"dimensions": VERTICAL_DIMENSIONS})[:CANDIDATE_LIMIT]
+
+
+def get_horizontal_grid_candidates(game_id):
+    return _get(f"/grids/game/{game_id}", {"dimensions": HORIZONTAL_DIMENSIONS})[:CANDIDATE_LIMIT]
+
+
+def get_hero_candidates(game_id):
+    return _get(f"/heroes/game/{game_id}")[:CANDIDATE_LIMIT]
+
+
+def get_logo_candidates(game_id):
+    return _get(f"/logos/game/{game_id}")[:CANDIDATE_LIMIT]
+
+
+def get_icon_candidates(game_id):
+    # Same .png-over-.ico preference as get_icon(), just applied across
+    # the whole capped list instead of picking just one.
+    icons = _get(f"/icons/game/{game_id}")[:CANDIDATE_LIMIT]
+    return sorted(icons, key=lambda i: not i["url"].lower().endswith(".png"))
+
+
 def extract_largest_png_from_ico(ico_bytes):
     """Modern .ico files embed PNG-compressed frames for larger sizes.
     Pull out the biggest one so we can save a real .png (no image lib needed).

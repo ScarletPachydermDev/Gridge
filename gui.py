@@ -8,6 +8,7 @@ SGDB key) before the main window.
 import re
 import subprocess
 import threading
+import urllib.request
 from datetime import date
 from urllib.parse import urlparse
 
@@ -49,7 +50,34 @@ _STATUS_CSS = b"""
 .status-ok { color: #26a269; }
 list row.zebra-odd:not(:selected) { background-color: alpha(currentColor, 0.03); }
 list row.zebra-even:not(:selected) { background-color: alpha(currentColor, 0.07); }
+.artwork-skeleton { background-color: alpha(currentColor, 0.12); border-radius: 6px; }
+.artwork-cell { border-radius: 6px; border: 3px solid transparent; }
+.artwork-cell.selected { border-color: #3584e4; }
+.artwork-check {
+  background-color: #3584e4;
+  color: white;
+  border-radius: 999px;
+  min-width: 18px;
+  min-height: 18px;
+  font-size: 11px;
+}
 """
+
+# The 5 SGDB artwork categories the picker shows, each as its own
+# horizontally-scrolling row: (internal basename matching
+# create_webapp.GRID_FILENAMES, display title, cell width, cell height).
+# Cell sizes roughly follow each category's real aspect ratio (grids
+# 600x900/920x430, heroes ~1920x620, logos/icons squarer) scaled down to
+# a picker-thumbnail size -- not pixel-exact, just visually distinct
+# enough to tell the categories apart at a glance.
+ARTWORK_CATEGORIES = [
+    ("grid_vertical", "Vertical Grid", 90, 135),
+    ("grid_horizontal", "Horizontal Grid", 150, 70),
+    ("hero", "Hero", 170, 55),
+    ("logo", "Logo", 110, 70),
+    ("icon", "Icon", 64, 64),
+]
+_ARTWORK_PADDING_CELLS = 6
 
 
 def _install_status_css():
@@ -540,7 +568,7 @@ class OnboardingWindow(Adw.ApplicationWindow):
 class MainWindow(Adw.ApplicationWindow):
     def __init__(self, app):
         super().__init__(application=app, title=APP_NAME)
-        self.set_default_size(480, -1)
+        self.set_default_size(1040, 700)
 
         self.match = None
         self._search_debounce_id = None
@@ -628,10 +656,170 @@ class MainWindow(Adw.ApplicationWindow):
         self.pending_label = Gtk.Label(wrap=True, css_classes=["dim-label"])
         content.append(self.pending_label)
 
-        toolbar.set_content(content)
+        main_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        main_box.append(content)
+        main_box.append(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL))
+        main_box.append(self._build_artwork_panel())
+
+        toolbar.set_content(main_box)
         self.set_content(toolbar)
 
         self._clear_results()
+        self._reset_artwork_panel()
+
+    def _build_artwork_panel(self):
+        """Right-hand artwork picker: one horizontally-scrolling row per
+        SGDB category, populated once a match is selected. Always
+        present (not just while a match is selected) so the panel never
+        pops the window's width around -- it just shows skeleton
+        placeholders in its empty state."""
+        panel = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL,
+            spacing=16,
+            margin_top=24,
+            margin_bottom=24,
+            margin_start=16,
+            margin_end=24,
+            hexpand=True,
+        )
+        self.artwork_rows = {}
+        for basename, title, cell_w, cell_h in ARTWORK_CATEGORIES:
+            section = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+            section.append(Gtk.Label(label=title, halign=Gtk.Align.START, css_classes=["heading"]))
+
+            row_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            # AUTOMATIC (not NEVER) so the scrollbar/scrolling only
+            # engages once real content actually overflows the row's
+            # allocated width -- a short row just sits there unscrollable.
+            scroller = Gtk.ScrolledWindow(
+                child=row_box,
+                hscrollbar_policy=Gtk.PolicyType.AUTOMATIC,
+                vscrollbar_policy=Gtk.PolicyType.NEVER,
+                propagate_natural_height=True,
+            )
+            section.append(scroller)
+            panel.append(section)
+
+            self.artwork_rows[basename] = {"box": row_box, "cell_w": cell_w, "cell_h": cell_h}
+
+        return panel
+
+    def _reset_artwork_panel(self):
+        self.artwork_candidates = {basename: [] for basename, *_ in ARTWORK_CATEGORIES}
+        self.artwork_selected = {basename: None for basename, *_ in ARTWORK_CATEGORIES}
+        for basename, *_ in ARTWORK_CATEGORIES:
+            self._render_artwork_row(basename)
+
+    def _render_artwork_row(self, basename):
+        row = self.artwork_rows[basename]
+        box = row["box"]
+        child = box.get_first_child()
+        while child:
+            nxt = child.get_next_sibling()
+            box.remove(child)
+            child = nxt
+
+        candidates = self.artwork_candidates[basename]
+        for candidate in candidates:
+            box.append(self._make_artwork_cell(basename, candidate, row["cell_w"], row["cell_h"]))
+
+        # Pad with skeleton placeholders so a short/empty row doesn't
+        # read as broken -- an approximation (a fixed count), not a
+        # pixel-exact fill to the row's actual allocated width, which
+        # would need a size-allocate handler to compute.
+        for _ in range(max(0, _ARTWORK_PADDING_CELLS - len(candidates))):
+            box.append(self._make_skeleton_cell(row["cell_w"], row["cell_h"]))
+
+    def _make_skeleton_cell(self, w, h):
+        return Gtk.Box(css_classes=["artwork-skeleton"], width_request=w, height_request=h)
+
+    def _make_artwork_cell(self, basename, candidate, w, h):
+        picture = Gtk.Picture(content_fit=Gtk.ContentFit.COVER, width_request=w, height_request=h)
+        overlay = Gtk.Overlay(child=picture, css_classes=["artwork-cell"])
+
+        check = Gtk.Label(
+            label="✓",
+            css_classes=["artwork-check"],
+            halign=Gtk.Align.END,
+            valign=Gtk.Align.END,
+            margin_end=4,
+            margin_bottom=4,
+            visible=False,
+        )
+        overlay.add_overlay(check)
+
+        button = Gtk.Button(child=overlay, css_classes=["flat"])
+        button.connect("clicked", self._on_artwork_clicked, basename, candidate, overlay, check)
+
+        self._load_thumbnail_async(candidate["thumb"], picture)
+        return button
+
+    def _on_artwork_clicked(self, _button, basename, candidate, overlay, check):
+        # Single-select per category: clear any previously selected cell
+        # in this same row before marking the new one.
+        box = self.artwork_rows[basename]["box"]
+        child = box.get_first_child()
+        while child:
+            cell_overlay = child.get_first_child()
+            if isinstance(cell_overlay, Gtk.Overlay):
+                cell_overlay.remove_css_class("selected")
+                cell_check = cell_overlay.get_last_child()
+                if isinstance(cell_check, Gtk.Label):
+                    cell_check.set_visible(False)
+            child = child.get_next_sibling()
+
+        overlay.add_css_class("selected")
+        check.set_visible(True)
+        self.artwork_selected[basename] = candidate
+
+    def _load_thumbnail_async(self, url, picture):
+        def work():
+            try:
+                req = urllib.request.Request(url, headers={"User-Agent": "gridge/0.1"})
+                with urllib.request.urlopen(req, timeout=15) as resp:
+                    data = resp.read()
+            except Exception:
+                return
+            GLib.idle_add(self._set_thumbnail, picture, data)
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _set_thumbnail(self, picture, data):
+        try:
+            texture = Gdk.Texture.new_from_bytes(GLib.Bytes.new(data))
+        except GLib.Error:
+            return
+        picture.set_paintable(texture)
+
+    def _fetch_artwork(self, match):
+        self._reset_artwork_panel()
+        game_id = match["id"]
+        fetchers = {
+            "grid_vertical": sgdb.get_vertical_grid_candidates,
+            "grid_horizontal": sgdb.get_horizontal_grid_candidates,
+            "hero": sgdb.get_hero_candidates,
+            "logo": sgdb.get_logo_candidates,
+            "icon": sgdb.get_icon_candidates,
+        }
+
+        def work():
+            for basename, fetch in fetchers.items():
+                try:
+                    candidates = fetch(game_id)
+                except Exception:
+                    candidates = []
+                GLib.idle_add(self._artwork_candidates_ready, match, basename, candidates)
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _artwork_candidates_ready(self, match, basename, candidates):
+        # Guards against a race: if the user picked a different match
+        # before this category's fetch finished, discard the stale
+        # result instead of populating the wrong row.
+        if self.match is not match:
+            return
+        self.artwork_candidates[basename] = candidates
+        self._render_artwork_row(basename)
 
     def _on_donate(self, _action, _param):
         Gtk.show_uri(self, DONATE_URL, 0)
@@ -720,6 +908,7 @@ class MainWindow(Adw.ApplicationWindow):
         self.match = None
         self.create_button.set_sensitive(False)
         self._clear_results()
+        self._reset_artwork_panel()
 
         resolved = resolve_url_input(self.url_entry.get_text())
         if resolved.url is None:
@@ -760,6 +949,10 @@ class MainWindow(Adw.ApplicationWindow):
     def _on_row_selected(self, _listbox, row):
         self.match = row.match_data if row else None
         self._update_create_button()
+        if self.match:
+            self._fetch_artwork(self.match)
+        else:
+            self._reset_artwork_panel()
 
     def _on_create(self, _button):
         resolved = resolve_url_input(self.url_entry.get_text())
@@ -770,17 +963,19 @@ class MainWindow(Adw.ApplicationWindow):
 
         match = self.match
         name = match["name"] if match else resolved.name
-        if match:
-            self._set_busy(True, f"Fetching assets for {name}...")
-        else:
-            self._set_busy(True, f"Creating shortcut for {name} (no SGDB artwork)...")
+        # Whatever the user picked in the artwork panel (possibly
+        # nothing, in every category) is what gets used -- no implicit
+        # fallback to auto-picking SGDB's first result now that there's
+        # a picker for it.
+        selections = dict(self.artwork_selected)
+        self._set_busy(True, f"Creating shortcut for {name}...")
 
         def work():
             try:
                 paths = {}
-                if match:
+                if match and any(selections.values()):
                     slug = cw.slugify(match["name"])
-                    paths = cw.fetch_assets(match["id"], slug)
+                    paths = cw.download_selected_assets(slug, selections)
                 appid = cw.register_steam_shortcut(name, url, paths)
                 GLib.idle_add(self._create_done, name, appid)
             except (steam_paths.SteamNotFoundError, edge_launcher.EdgeNotFoundError, sgdb.SGDBError) as e:
@@ -813,6 +1008,7 @@ class MainWindow(Adw.ApplicationWindow):
         self.match = None
         self.create_button.set_sensitive(False)
         self._clear_results()
+        self._reset_artwork_panel()
         self._set_busy(False, "")
 
     def _on_restart_steam(self, _button):

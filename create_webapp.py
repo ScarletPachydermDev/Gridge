@@ -153,6 +153,30 @@ def pick_match(name):
     return matches[choice]
 
 
+def _download_asset_url(url, basename, out_dir):
+    """Download one artwork URL into out_dir/<basename><ext>, converting
+    a .ico into a real .png first when possible (.ico isn't part of the
+    freedesktop icon spec and renders blank in some app menus). Returns
+    the local path."""
+    ext = os.path.splitext(urlparse(url).path)[1] or ".png"
+    filename = f"{basename}{ext}"
+    dest = os.path.join(out_dir, filename)
+    sgdb.download(url, dest)
+
+    if ext == ".ico":
+        with open(dest, "rb") as f:
+            png_data = sgdb.extract_largest_png_from_ico(f.read())
+        if png_data:
+            os.remove(dest)
+            filename = f"{basename}.png"
+            dest = os.path.join(out_dir, filename)
+            with open(dest, "wb") as f:
+                f.write(png_data)
+
+    print(f"  + {filename}  <-  {url}")
+    return dest
+
+
 def fetch_assets(game_id, slug):
     out_dir = os.path.join(ASSET_DIR, slug)
     os.makedirs(out_dir, exist_ok=True)
@@ -171,23 +195,25 @@ def fetch_assets(game_id, slug):
         if not url:
             print(f"  ! no {basename} available on SGDB, skipping")
             continue
-        ext = os.path.splitext(urlparse(url).path)[1] or ".png"
-        filename = f"{basename}{ext}"
-        dest = os.path.join(out_dir, filename)
-        sgdb.download(url, dest)
+        paths[basename] = _download_asset_url(url, basename, out_dir)
+    return paths
 
-        if ext == ".ico":
-            with open(dest, "rb") as f:
-                png_data = sgdb.extract_largest_png_from_ico(f.read())
-            if png_data:
-                os.remove(dest)
-                filename = f"{basename}.png"
-                dest = os.path.join(out_dir, filename)
-                with open(dest, "wb") as f:
-                    f.write(png_data)
 
-        print(f"  + {filename}  <-  {url}")
-        paths[basename] = dest
+def download_selected_assets(slug, selections):
+    """Download only the user-picked candidate per category from the
+    artwork picker. selections is {basename: candidate_or_None}, each
+    candidate being a raw SGDB entry dict with a "url" key. Categories
+    left unpicked (or with no candidate at all) are simply skipped --
+    same graceful degradation as fetch_assets(), a shortcut can always
+    be created regardless of how much artwork was picked."""
+    out_dir = os.path.join(ASSET_DIR, slug)
+    os.makedirs(out_dir, exist_ok=True)
+
+    paths = {}
+    for basename, candidate in selections.items():
+        if not candidate:
+            continue
+        paths[basename] = _download_asset_url(candidate["url"], basename, out_dir)
     return paths
 
 

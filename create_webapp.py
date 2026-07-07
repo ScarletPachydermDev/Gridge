@@ -234,6 +234,8 @@ def register_steam_shortcut(name, url, asset_paths, user_id=None):
         "--kiosk",
         "--start-fullscreen",
         "--hide-scrollbars",
+        "--no-first-run",
+        "--no-default-browser-check",
     ]
 
     vdf_path = os.path.join(userdata_dir, "config", "shortcuts.vdf")

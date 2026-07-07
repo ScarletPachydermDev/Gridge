@@ -7,6 +7,7 @@ Chromium derivative (including a bundled Electron) can play that audio.
 Rather than bundling a browser ourselves, we shell out to Edge if it's
 already installed, and ask the user to install it otherwise.
 """
+import json
 import os
 import shutil
 import subprocess
@@ -22,6 +23,30 @@ FLATPAK_APP_ID = "com.microsoft.Edge"
 FLATPAK_FIRST_RUN_PATH = os.path.expanduser(
     "~/.var/app/com.microsoft.Edge/config/microsoft-edge/First Run"
 )
+
+# Edge layers its OWN onboarding (a fullscreen "Welcome to Edge" wizard,
+# a sign-in nudge, then an auto-opened explore.microsoft.com/edge/welcome
+# tour tab) on top of the base Chromium first-run flow the sentinel
+# above suppresses -- confirmed via inspecting a real completed profile
+# on real hardware: it's tracked in Local State (browser-level, not
+# per-profile) under "fre"/"new_device_fre", a separate mechanism the
+# sentinel file doesn't touch at all. There's no managed-policy route
+# for the Flatpak build either (confirmed: its sandboxed /etc has no
+# /opt, and host-etc access only exposes the host's /etc at
+# /run/host/etc, which Edge's binary never looks at) -- pre-seeding
+# these same keys before Edge's first-ever launch is the only lever
+# available.
+FLATPAK_LOCAL_STATE_PATH = os.path.expanduser(
+    "~/.var/app/com.microsoft.Edge/config/microsoft-edge/Local State"
+)
+_FRE_SEED = {
+    "fre": {
+        "has_user_completed_fre": True,
+        "has_user_seen_fre": True,
+        "has_first_visible_browser_session_completed": True,
+    },
+    "new_device_fre": {"has_user_seen_new_fre": True},
+}
 
 INSTALL_INSTRUCTIONS = (
     "Microsoft Edge wasn't found. Install it from Flathub "
@@ -73,11 +98,18 @@ def find_edge():
 
 
 def suppress_first_run():
-    """Pre-seed the Flatpak Edge profile's first-run sentinel so a kiosk
-    shortcut isn't hijacked by the first-run wizard. Safe to call
-    whenever we know the Flatpak Edge is installed; a no-op if the
-    profile already has one (e.g. the user already ran Edge directly)."""
-    if os.path.exists(FLATPAK_FIRST_RUN_PATH):
-        return
-    os.makedirs(os.path.dirname(FLATPAK_FIRST_RUN_PATH), exist_ok=True)
-    open(FLATPAK_FIRST_RUN_PATH, "a").close()
+    """Pre-seed the Flatpak Edge profile's first-run sentinel and FRE
+    completion state so a kiosk shortcut isn't hijacked by either
+    Chromium's base first-run wizard or Edge's own onboarding on top of
+    it. Safe to call whenever we know the Flatpak Edge is installed;
+    a no-op wherever the profile already has state (e.g. the user
+    already ran Edge directly) -- we don't want to fight Chromium's own
+    management of these files once they exist."""
+    if not os.path.exists(FLATPAK_FIRST_RUN_PATH):
+        os.makedirs(os.path.dirname(FLATPAK_FIRST_RUN_PATH), exist_ok=True)
+        open(FLATPAK_FIRST_RUN_PATH, "a").close()
+
+    if not os.path.exists(FLATPAK_LOCAL_STATE_PATH):
+        os.makedirs(os.path.dirname(FLATPAK_LOCAL_STATE_PATH), exist_ok=True)
+        with open(FLATPAK_LOCAL_STATE_PATH, "w") as f:
+            json.dump(_FRE_SEED, f)

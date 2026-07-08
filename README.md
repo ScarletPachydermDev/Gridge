@@ -11,11 +11,15 @@ Type a URL or the name of a streaming/cloud-gaming service, and Gridge finds mat
 
 ## What it does
 
-1. Type a URL (`netflix.com`) or a recognized service name (`Netflix`, `Disney+`, `GeForce NOW`, ...) into the URL bar.
-2. Gridge searches SteamGridDB for matching artwork and shows a picker: Vertical Grid, Horizontal Grid, Hero, Logo, and Icon, each with several candidates to choose from (or just go with the defaults).
-3. Click Create Steam Shortcut. Restart Steam, and the new shortcut appears in your library, ready to launch straight into the site in a clean, chromeless window.
+Type a URL (`netflix.com`) or a recognized service name (`Netflix`, `Disney+`, `GeForce NOW`, ...), pick matching SteamGridDB artwork (or just go with the defaults), and click Create Steam Shortcut. A shortcut can be created even for services that don't have SteamGridDB artwork at all, and even for services not on Gridge's built-in name list (just type the full URL instead).
 
-A shortcut can be created even for services that don't have SteamGridDB artwork at all, and even for services not on Gridge's built-in name list (just type the full URL instead).
+Beyond that, Gridge also handles in the background:
+
+- **Installs Steam and/or Microsoft Edge itself** (as Flatpaks) if either is missing, right from onboarding -- no manual terminal commands needed.
+- **Removes Edge's first-time setup entirely.** A freshly-installed Edge normally shows its own onboarding wizard, a sign-in nudge, and an auto-opened "what's new" tour tab the first time it runs -- all in a regular browser window, not the kiosk window a shortcut expects. Gridge pre-seeds Edge's profile so none of that ever interrupts a shortcut's first launch.
+- **Keeps shortcuts sized correctly in Game Mode**, docked or undocked -- a non-Steam shortcut doesn't get Steam's automatic resolution handling that a real library game gets, so without this a shortcut would stay pinned to whatever resolution it first launched at even after docking to a TV. Gridge's shortcuts detect Gamescope's actual current output resolution and match it every launch.
+- **Export and import shortcuts** -- back up the set of shortcuts Gridge created (plus their artwork) as a zip, and restore them on another machine or after a reset, no re-entering URLs or re-picking artwork required.
+- **(Planned) Steam Input remapping for easier web navigation in Game Mode** -- not implemented yet.
 
 ![Main window](screenshots/main.png)
 

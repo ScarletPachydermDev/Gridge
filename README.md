@@ -58,6 +58,10 @@ Gridge doesn't share code with any of these, but built on ideas/techniques from:
 
 Vendors [python-xlib](https://github.com/python-xlib/python-xlib) and [six](https://github.com/benjaminp/six) (bundled in `vendor/`, since there's no pip on the Steam Deck's host OS to install them with).
 
+## License
+
+[MIT](LICENSE)
+
 ## Disclaimer
 
 Gridge is an unofficial tool; it is not affiliated with, endorsed by, or sponsored by any streaming service.

@@ -4,10 +4,7 @@
   <name>Gridge</name>
   <summary>Add streaming sites and cloud gaming services as Steam shortcuts</summary>
   <metadata_license>CC0-1.0</metadata_license>
-  <!-- TODO: pick a real project license before Flathub submission (MIT,
-       GPL-3.0-or-later, etc.) and update this to match a LICENSE file
-       in the repo; left unset rather than guessed. -->
-  <project_license>LicenseRef-proprietary</project_license>
+  <project_license>MIT</project_license>
   <description>
     <p>
       Gridge lets you type a URL or a known streaming/cloud-gaming service

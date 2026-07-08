@@ -46,3 +46,14 @@ Found a bug, or a streaming service that doesn't work right? [Open an issue](htt
 ## Credits
 
 Built by [Scarlet-Pachyderm](https://github.com/Scarlet-Pachyderm) and Claude Code. Artwork sourced from [SteamGridDB](https://www.steamgriddb.com/).
+
+Gridge doesn't share code with any of these, but built on ideas/techniques from:
+- [unrud/video-downloader](https://github.com/unrud/video-downloader) -- UI style inspiration (single window, no bells and whistles).
+- [SteamGridDB/steam-rom-manager](https://github.com/SteamGridDB/steam-rom-manager) -- the kill/wait/relaunch pattern Gridge's Steam restart uses.
+- [loki-47-6F-64/gamescope-mode-change](https://github.com/loki-47-6F-64/gamescope-mode-change) -- discovered the Gamescope X11 property Gridge's shortcuts use to match the display's actual resolution when docking/undocking a Steam Deck.
+
+Vendors [python-xlib](https://github.com/python-xlib/python-xlib) and [six](https://github.com/benjaminp/six) (bundled in `vendor/`, since there's no pip on the Steam Deck's host OS to install them with).
+
+## Disclaimer
+
+Gridge is an unofficial tool; it is not affiliated with, endorsed by, or sponsored by any streaming service.

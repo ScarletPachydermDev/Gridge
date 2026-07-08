@@ -65,3 +65,9 @@ Vendors [python-xlib](https://github.com/python-xlib/python-xlib) and [six](http
 ## Disclaimer
 
 Gridge is an unofficial tool; it is not affiliated with, endorsed by, or sponsored by any streaming service.
+
+## Donate
+
+Bitcoin: bc1qw5d4wyc4szjz28e6tafmpd4u9flgqqnjlwuwd8
+
+Monero: 89GucTETmNEUVdbF3HYWYC8Gi3mFdUFvyEaa545E4S8ahq2MfXmGgMzS5q9Kx6k3DG943gXFbn4ECTQFf8Coe5qyEfwxAdM

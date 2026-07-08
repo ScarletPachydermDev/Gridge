@@ -2,7 +2,7 @@
 
 Type a URL or the name of a streaming/cloud-gaming service, and Gridge finds matching artwork on [SteamGridDB](https://www.steamgriddb.com/) and creates a non-Steam shortcut for it -- so it shows up as a native-looking tile in Steam's Game Mode, launching borderless in a kiosk browser window instead of a regular tab. Built with Steam hardware in mind.
 
-## Rquirements
+## Requirements
 1. Steam installed, either native OS package or Flatpak
 2. Microsoft Edge
 3. SteamGridDB API key 

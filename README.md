@@ -11,7 +11,7 @@ Type a URL or the name of a streaming/cloud-gaming service, and Gridge finds mat
 
 ## What it does
 
-Type a URL (`netflix.com`) or a recognized service name (`Netflix`, `Disney+`, `GeForce NOW`, ...), pick matching SteamGridDB artwork (or just go with the defaults), and click Create Steam Shortcut. A shortcut can be created even for services that don't have SteamGridDB artwork at all, and even for services not on Gridge's built-in name list (just type the full URL instead).
+Type a URL (`netflix.com`) or a recognized service name (`Netflix`, `Disney+`, `GeForce NOW`, ...), pick matching SteamGridDB artwork (or just go with the defaults), and click Create Steam Shortcut.
 
 Beyond that, Gridge also handles in the background:
 
@@ -30,10 +30,6 @@ Every shortcut Gridge creates launches through Microsoft Edge, not a regular sys
 This isn't a hypothetical edge case -- plenty of mainstream streaming catalogs use Dolby Atmos/Plus tracks by default for supported titles (a large chunk of Disney+'s Marvel/Star Wars library, for instance). When a browser without codec support hits one of these tracks, it typically doesn't show an error at all: video keeps playing, but the audio silently fails or drops out, which is a much worse experience than a browser refusing to load the page. Edge is the one browser that avoids this entirely, so it's the only one Gridge shells out to.
 
 Edge shares one profile across every shortcut Gridge creates, so logins and saved sessions from one streaming service carry over to the others automatically -- you only sign in once per service, not once per shortcut.
-
-## Status
-
-Gridge is early (v1.0.0). It's been tested on a Steam Deck (native Steam) and a regular Linux desktop (Flatpak Steam), both with Gridge itself packaged as a Flatpak.
 
 ## Building from source
 

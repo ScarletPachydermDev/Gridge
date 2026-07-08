@@ -5,6 +5,7 @@
     "sdk": "org.gnome.Sdk",
     "command": "gridge",
     "finish-args": [
+        "--share=network",
         "--socket=wayland",
         "--socket=fallback-x11",
         "--device=dri",

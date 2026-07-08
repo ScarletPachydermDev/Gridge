@@ -723,6 +723,7 @@ class MainWindow(Adw.ApplicationWindow):
         self.set_content(toolbar)
 
         self._last_known_size = None
+        self._pending_size = None
         self._thumbnail_cache = {}
         self._clear_results()
         self._reset_artwork_panel()
@@ -742,6 +743,20 @@ class MainWindow(Adw.ApplicationWindow):
 
     def _refresh_for_window_size(self):
         size = (self.get_width(), self.get_height())
+
+        # Debounced: only rebuild once the reported size has held
+        # steady across two consecutive ticks, not on every transient
+        # size seen while a maximize/resize animation is still
+        # settling. Rebuilding on every intermediate size (confirmed on
+        # a monitor much bigger than the 1280x800 default, where the
+        # maximize animation covers a lot more distance/frames than on
+        # the Deck's screen, which is already close to that default)
+        # is what made this look like a slow, laggy creep instead of a
+        # single snappy adjustment.
+        if size != self._pending_size:
+            self._pending_size = size
+            return True
+
         if size == self._last_known_size:
             return True
         self._last_known_size = size

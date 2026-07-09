@@ -21,7 +21,11 @@ POLL_INTERVAL = 0.5
 POLL_TIMEOUT = 60
 
 
-def _steam_pid_running():
+def is_steam_running():
+    """True if a Steam process is currently running on the host (native
+    or Flatpak) -- public since onboarding also uses this to distinguish
+    "still downloading/not started yet" from "running, just waiting on
+    login/post-login sync" while it waits for a fresh install to finish."""
     return subprocess.run(host_exec.wrap(["pidof", "steam"]), capture_output=True).returncode == 0
 
 
@@ -31,7 +35,7 @@ def restart_steam():
         subprocess.run(host_exec.wrap(["kill", "-15", *pids]), capture_output=True)
 
     waited = 0.0
-    while _steam_pid_running() and waited < POLL_TIMEOUT:
+    while is_steam_running() and waited < POLL_TIMEOUT:
         time.sleep(POLL_INTERVAL)
         waited += POLL_INTERVAL
 
@@ -68,7 +72,7 @@ def _steam_pids():
 def _launch_and_wait(argv):
     subprocess.Popen(host_exec.wrap(argv), start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     waited = 0.0
-    while not _steam_pid_running() and waited < POLL_TIMEOUT:
+    while not is_steam_running() and waited < POLL_TIMEOUT:
         time.sleep(POLL_INTERVAL)
         waited += POLL_INTERVAL
 

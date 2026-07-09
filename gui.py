@@ -414,6 +414,23 @@ class OnboardingWindow(Adw.ApplicationWindow):
         except steam_paths.SteamNotFoundError as e:
             self.steam_ok = False
             self.steam_row.set_subtitle(str(e))
+            if self._awaiting_steam_login:
+                # Distinguish "still downloading, hasn't even started
+                # yet" from "running, just waiting on login/post-login
+                # sync" -- confirmed the latter can take real, unhelped
+                # time after login (Steam's own initial account sync),
+                # not something Gridge's polling controls, so the
+                # message shouldn't imply it's stuck.
+                if steam_restart.is_steam_running():
+                    self.status_label.set_label(
+                        "Steam is running -- log in when its window appears. "
+                        "Finishing setup after login can take a moment."
+                    )
+                else:
+                    self.status_label.set_label(
+                        "Launching Steam for first-time setup -- this can take a few "
+                        "minutes, then it'll ask you to log in."
+                    )
         self.steam_install_flatpak_button.set_visible(not self.steam_ok)
         self._set_status(self.steam_status, self.steam_ok)
         self._update_continue_button()
@@ -444,10 +461,6 @@ class OnboardingWindow(Adw.ApplicationWindow):
             # keeps running even if the user closes Gridge meanwhile.
             steam_restart.launch_flatpak_steam_detached()
             self._awaiting_steam_login = True
-            self.status_label.set_label(
-                "Launching Steam for first-time setup -- this can take a few "
-                "minutes, then it'll ask you to log in."
-            )
             self._check_steam()
         else:
             self.status_label.set_label(f"Install failed: {error_output.strip()}")

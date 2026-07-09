@@ -13,8 +13,7 @@
         "--filesystem=home",
         "--filesystem=xdg-data/Steam:rw",
         "--filesystem=~/.steam:rw",
-        "--filesystem=~/.var/app/com.valvesoftware.Steam:rw",
-        "--filesystem=~/.var/app/com.microsoft.Edge:rw"
+        "--filesystem=~/.var/app:rw"
     ],
     "modules": [
         {

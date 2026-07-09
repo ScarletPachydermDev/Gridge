@@ -380,8 +380,10 @@ class OnboardingWindow(Adw.ApplicationWindow):
         self.connect("destroy", lambda *_a: GLib.source_remove(self._requirements_poll_id))
 
     def _poll_requirements(self):
+        print(f"[gridge-debug] poll tick before check: steam_ok={self.steam_ok} edge_ok={self.edge_ok} sgdb_ok={self.sgdb_ok}")
         self._check_steam()
         self._check_edge()
+        print(f"[gridge-debug] poll tick after check: steam_ok={self.steam_ok} edge_ok={self.edge_ok} sgdb_ok={self.sgdb_ok}")
         if self.auto_advance and self.steam_ok and self.edge_ok and self.sgdb_ok:
             self._on_continue(None)
             return False
@@ -406,12 +408,14 @@ class OnboardingWindow(Adw.ApplicationWindow):
     def _check_steam(self):
         try:
             root = steam_paths.find_steam_root()
+            print(f"[gridge-debug] find_steam_root() -> {root!r}")
             self.steam_ok = True
             self.steam_row.set_subtitle(root)
             if self._awaiting_steam_login:
                 self._awaiting_steam_login = False
                 self.status_label.set_label("")
         except steam_paths.SteamNotFoundError as e:
+            print(f"[gridge-debug] find_steam_root() -> SteamNotFoundError({e!r})")
             self.steam_ok = False
             self.steam_row.set_subtitle(str(e))
             if self._awaiting_steam_login:

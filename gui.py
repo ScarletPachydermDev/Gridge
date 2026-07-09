@@ -744,7 +744,7 @@ class MainWindow(Adw.ApplicationWindow):
         sgdb_search_toggle.connect("toggled", self._on_toggle_sgdb_search)
         self.results_group.set_header_suffix(sgdb_search_toggle)
 
-        self.sgdb_search_entry = Gtk.SearchEntry(placeholder_text="Search SteamGridDB...")
+        self.sgdb_search_entry = Gtk.SearchEntry(placeholder_text="Search SteamGridDB...", margin_bottom=10)
         self.sgdb_search_entry.connect("search-changed", self._on_sgdb_search_changed)
         self.sgdb_search_entry.connect("activate", self._on_sgdb_search_activated)
         self.sgdb_search_revealer = Gtk.Revealer(

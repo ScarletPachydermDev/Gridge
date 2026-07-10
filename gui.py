@@ -945,13 +945,22 @@ class MainWindow(Adw.ApplicationWindow):
             row_box = Gtk.Box(
                 orientation=Gtk.Orientation.HORIZONTAL, spacing=_ARTWORK_ROW_SPACING, vexpand=False, valign=Gtk.Align.START
             )
-            # AUTOMATIC (not NEVER) so scrolling only engages once real
-            # content actually exceeds visible_count (computed below) --
-            # an all-skeleton row is sized to exactly fit, never overflows,
-            # so it never gets a scrollbar in the first place.
+            # ALWAYS (not AUTOMATIC) -- AUTOMATIC only reserves the
+            # scrollbar's height once a category actually has more
+            # results than visible_count, so a row's total height
+            # (cells + scrollbar strip) differed depending on whether it
+            # overflowed. The all-skeleton empty state never overflows,
+            # so every category below a since-populated overflowing row
+            # visibly shifted down once real results loaded (confirmed:
+            # not specific to any one service, happened whenever a
+            # category's result count exceeded what fit on screen).
+            # ALWAYS reserves that strip unconditionally so row height
+            # never depends on content -- overlay_scrolling stays on
+            # (the default) so the reserved strip doesn't also draw a
+            # permanently-visible scrollbar for rows that never scroll.
             scroller = Gtk.ScrolledWindow(
                 child=row_box,
-                hscrollbar_policy=Gtk.PolicyType.AUTOMATIC,
+                hscrollbar_policy=Gtk.PolicyType.ALWAYS,
                 vscrollbar_policy=Gtk.PolicyType.NEVER,
                 propagate_natural_height=True,
                 vexpand=False,

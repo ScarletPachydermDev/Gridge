@@ -6,6 +6,7 @@ shows up in the app menu.
 import argparse
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -337,7 +338,12 @@ def register_steam_shortcut(name, url, asset_paths, user_id=None, couch_mode=Fal
         "--no-default-browser-check",
     ]
     if couch_mode:
-        edge_args.append(f"--user-agent={YOUTUBE_TV_USER_AGENT}")
+        # LaunchOptions is stored/parsed as one shell-like string, and the
+        # TV user-agent has spaces/parens/semicolons in it -- unquoted, it
+        # gets word-split into several bogus arguments (confirmed: Edge
+        # then fails to start at all, so Steam's Play button just resets
+        # with nothing visibly happening).
+        edge_args.append(shlex.quote(f"--user-agent={YOUTUBE_TV_USER_AGENT}"))
 
     vdf_path = os.path.join(userdata_dir, "config", "shortcuts.vdf")
     written_appid, stale_appids = shortcuts_vdf.add_shortcut(

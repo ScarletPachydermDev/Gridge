@@ -127,10 +127,14 @@ def get_icon(game_id):
 # Candidate-list variants for the artwork picker -- each SGDB entry
 # already carries both "url" (full-res) and "thumb" (small preview), so
 # the picker can load thumbnails cheaply and only download the full
-# image for whatever the user actually selects. Capped at 10 per
-# category: SGDB can return dozens for a popular game, and a bounded
-# set keeps the picker's upfront thumbnail downloads reasonable.
-CANDIDATE_LIMIT = 10
+# image for whatever the user actually selects. Capped per category:
+# SGDB can return dozens for a popular game, and a bounded set keeps
+# the picker's upfront thumbnail downloads reasonable. 24 (not the
+# original 10) -- confirmed Humor-tagged entries get sorted near the
+# end of the list (e.g. Microsoft Edge's vertical grids: 24 total,
+# humor ones start at index 20), so a low cap silently excluded them
+# even after requesting humor=any.
+CANDIDATE_LIMIT = 24
 
 
 def get_vertical_grid_candidates(game_id):

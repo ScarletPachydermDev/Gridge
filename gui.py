@@ -733,7 +733,7 @@ class MainWindow(Adw.ApplicationWindow):
         clear_button.connect("clicked", self._on_clear_url)
         self.url_entry.add_suffix(clear_button)
         self.couch_mode_row = Adw.SwitchRow(
-            title="Couch mode",
+            title="Leanback mode",
             subtitle="Use YouTube's TV interface -- easier to navigate with a controller",
             visible=False,
         )
@@ -824,7 +824,8 @@ class MainWindow(Adw.ApplicationWindow):
                 # line (same class of hexpand fight noted above for content).
                 max_width_chars=1,
                 hexpand=True,
-                xalign=0,
+                justify=Gtk.Justification.CENTER,
+                xalign=0.5,
                 css_classes=["dim-label"],
             )
         )

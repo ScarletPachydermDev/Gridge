@@ -942,7 +942,9 @@ class MainWindow(Adw.ApplicationWindow):
             title_box.append(spinner)
             section.append(title_box)
 
-            row_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=_ARTWORK_ROW_SPACING)
+            row_box = Gtk.Box(
+                orientation=Gtk.Orientation.HORIZONTAL, spacing=_ARTWORK_ROW_SPACING, vexpand=False, valign=Gtk.Align.START
+            )
             # AUTOMATIC (not NEVER) so scrolling only engages once real
             # content actually exceeds visible_count (computed below) --
             # an all-skeleton row is sized to exactly fit, never overflows,
@@ -952,6 +954,7 @@ class MainWindow(Adw.ApplicationWindow):
                 hscrollbar_policy=Gtk.PolicyType.AUTOMATIC,
                 vscrollbar_policy=Gtk.PolicyType.NEVER,
                 propagate_natural_height=True,
+                vexpand=False,
             )
             section.append(scroller)
             panel.append(section)
@@ -1025,7 +1028,23 @@ class MainWindow(Adw.ApplicationWindow):
         # always have -- without this, a skeleton cell rendered a few
         # pixels smaller than a real one, causing a visible resize the
         # moment artwork replaced it.
-        return Gtk.Box(css_classes=["artwork-skeleton", "artwork-cell"], width_request=w, height_request=h)
+        #
+        # hexpand/vexpand explicitly False -- width_request/height_request
+        # only set a *minimum*, and on a large/4K window some ancestor
+        # (the outer artwork scroller is vexpand=True to fill the window)
+        # was letting these leaf widgets claim extra allocated height
+        # beyond that minimum, stretching cells taller the bigger the
+        # window got instead of staying a fixed size. Confirmed on a real
+        # 4K display: cell width matched the request but height didn't.
+        return Gtk.Box(
+            css_classes=["artwork-skeleton", "artwork-cell"],
+            width_request=w,
+            height_request=h,
+            hexpand=False,
+            vexpand=False,
+            halign=Gtk.Align.START,
+            valign=Gtk.Align.START,
+        )
 
     def _make_artwork_cell(self, basename, candidate, w, h, selected=False):
         # CONTAIN, not COVER -- COVER crops to fill the cell, and actual
@@ -1033,14 +1052,32 @@ class MainWindow(Adw.ApplicationWindow):
         # sizes exactly (confirmed: logos/icons were visibly cropped).
         # Letterboxing inside the same fixed size keeps every cell
         # (real or skeleton) identically sized either way.
-        picture = Gtk.Picture(content_fit=Gtk.ContentFit.CONTAIN, width_request=w, height_request=h)
+        #
+        # Same explicit hexpand/vexpand=False as _make_skeleton_cell, for
+        # the same reason -- applied at every level (Picture, Overlay,
+        # Button) since any one of them left unset was enough to let the
+        # cell grow past its fixed size on a tall/4K window.
+        picture = Gtk.Picture(
+            content_fit=Gtk.ContentFit.CONTAIN,
+            width_request=w,
+            height_request=h,
+            hexpand=False,
+            vexpand=False,
+        )
         # artwork-skeleton (not just artwork-cell) so logos/icons with
         # transparent backgrounds get the same neutral backdrop the
         # empty-state placeholders use, instead of camouflaging into
         # whatever's behind the window (confirmed: white/dark logos were
         # nearly invisible against the app background).
         cell_classes = ["artwork-cell", "artwork-skeleton"] + (["selected"] if selected else [])
-        overlay = Gtk.Overlay(child=picture, css_classes=cell_classes)
+        overlay = Gtk.Overlay(
+            child=picture,
+            css_classes=cell_classes,
+            hexpand=False,
+            vexpand=False,
+            halign=Gtk.Align.START,
+            valign=Gtk.Align.START,
+        )
 
         check = Gtk.Label(
             label="✓",
@@ -1053,7 +1090,14 @@ class MainWindow(Adw.ApplicationWindow):
         )
         overlay.add_overlay(check)
 
-        button = Gtk.Button(child=overlay, css_classes=["flat", "artwork-button"])
+        button = Gtk.Button(
+            child=overlay,
+            css_classes=["flat", "artwork-button"],
+            hexpand=False,
+            vexpand=False,
+            halign=Gtk.Align.START,
+            valign=Gtk.Align.START,
+        )
         button.connect("clicked", self._on_artwork_clicked, basename, candidate, overlay, check)
 
         self._load_thumbnail_async(basename, candidate["thumb"], picture)

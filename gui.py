@@ -793,6 +793,19 @@ class MainWindow(Adw.ApplicationWindow):
         self.pending_label = Gtk.Label(wrap=True, css_classes=["dim-label"])
         content.append(self.pending_label)
 
+        self.controller_tip_box = Gtk.Box(
+            orientation=Gtk.Orientation.HORIZONTAL, spacing=6, halign=Gtk.Align.CENTER, visible=False
+        )
+        self.controller_tip_box.append(Gtk.Image(icon_name="dialog-information-symbolic"))
+        self.controller_tip_box.append(
+            Gtk.Label(
+                label='Remember to set Steam Input layout to "Web Browser" (or your preferred one) for each shortcut',
+                wrap=True,
+                css_classes=["dim-label"],
+            )
+        )
+        content.append(self.controller_tip_box)
+
         # The artwork panel gets its own vertical scroller -- bigger
         # artwork plus a smaller screen (the Deck's 1280x800, or any
         # maximized-but-still-small window) could otherwise push the
@@ -1312,6 +1325,7 @@ class MainWindow(Adw.ApplicationWindow):
             self.pending_label.set_label("")
         else:
             self.pending_label.set_label(f"{n} shortcut{'s' if n != 1 else ''} to be added after Steam restart")
+        self.controller_tip_box.set_visible(n > 0)
 
     def _on_clear_url(self, _button):
         self.url_entry.set_text("")

@@ -8,6 +8,11 @@ import config
 
 API_BASE = "https://www.steamgriddb.com/api/v2"
 
+# SGDB excludes the "Humor" tag from results unless explicitly asked for
+# (same convention as its nsfw filter) -- "any" includes both tagged and
+# untagged images instead of narrowing to humor-only.
+INCLUDE_HUMOR = {"humor": "any"}
+
 # Steam's non-Steam-shortcut grid folder wants these shapes:
 VERTICAL_DIMENSIONS = "600x900,342x482,660x930"
 HORIZONTAL_DIMENSIONS = "460x215,920x430"
@@ -88,27 +93,27 @@ def get_game(game_id):
 
 
 def get_vertical_grid(game_id):
-    grids = _get(f"/grids/game/{game_id}", {"dimensions": VERTICAL_DIMENSIONS})
+    grids = _get(f"/grids/game/{game_id}", {"dimensions": VERTICAL_DIMENSIONS, **INCLUDE_HUMOR})
     return grids[0]["url"] if grids else None
 
 
 def get_horizontal_grid(game_id):
-    grids = _get(f"/grids/game/{game_id}", {"dimensions": HORIZONTAL_DIMENSIONS})
+    grids = _get(f"/grids/game/{game_id}", {"dimensions": HORIZONTAL_DIMENSIONS, **INCLUDE_HUMOR})
     return grids[0]["url"] if grids else None
 
 
 def get_hero(game_id):
-    heroes = _get(f"/heroes/game/{game_id}")
+    heroes = _get(f"/heroes/game/{game_id}", INCLUDE_HUMOR)
     return heroes[0]["url"] if heroes else None
 
 
 def get_logo(game_id):
-    logos = _get(f"/logos/game/{game_id}")
+    logos = _get(f"/logos/game/{game_id}", INCLUDE_HUMOR)
     return logos[0]["url"] if logos else None
 
 
 def get_icon(game_id):
-    icons = _get(f"/icons/game/{game_id}")
+    icons = _get(f"/icons/game/{game_id}", INCLUDE_HUMOR)
     if not icons:
         return None
     # Prefer a plain PNG/APNG over .ico -- .ico isn't part of the
@@ -129,25 +134,25 @@ CANDIDATE_LIMIT = 10
 
 
 def get_vertical_grid_candidates(game_id):
-    return _get(f"/grids/game/{game_id}", {"dimensions": VERTICAL_DIMENSIONS})[:CANDIDATE_LIMIT]
+    return _get(f"/grids/game/{game_id}", {"dimensions": VERTICAL_DIMENSIONS, **INCLUDE_HUMOR})[:CANDIDATE_LIMIT]
 
 
 def get_horizontal_grid_candidates(game_id):
-    return _get(f"/grids/game/{game_id}", {"dimensions": HORIZONTAL_DIMENSIONS})[:CANDIDATE_LIMIT]
+    return _get(f"/grids/game/{game_id}", {"dimensions": HORIZONTAL_DIMENSIONS, **INCLUDE_HUMOR})[:CANDIDATE_LIMIT]
 
 
 def get_hero_candidates(game_id):
-    return _get(f"/heroes/game/{game_id}")[:CANDIDATE_LIMIT]
+    return _get(f"/heroes/game/{game_id}", INCLUDE_HUMOR)[:CANDIDATE_LIMIT]
 
 
 def get_logo_candidates(game_id):
-    return _get(f"/logos/game/{game_id}")[:CANDIDATE_LIMIT]
+    return _get(f"/logos/game/{game_id}", INCLUDE_HUMOR)[:CANDIDATE_LIMIT]
 
 
 def get_icon_candidates(game_id):
     # Same .png-over-.ico preference as get_icon(), just applied across
     # the whole capped list instead of picking just one.
-    icons = _get(f"/icons/game/{game_id}")[:CANDIDATE_LIMIT]
+    icons = _get(f"/icons/game/{game_id}", INCLUDE_HUMOR)[:CANDIDATE_LIMIT]
     return sorted(icons, key=lambda i: not i["url"].lower().endswith(".png"))
 
 

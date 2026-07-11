@@ -72,6 +72,16 @@ list row.zebra-even:not(:selected) { background-color: alpha(currentColor, 0.07)
   min-height: 18px;
   font-size: 11px;
 }
+/* Strips the ScrolledWindow's own default border/shadow/background so
+   a real cell (Overlay > this > Picture) matches a skeleton cell (a
+   plain Box) exactly instead of rendering a hair different. */
+.artwork-clip, .artwork-clip > viewport { border: none; background: none; box-shadow: none; padding: 0; }
+/* Reserves the per-row horizontal scrollbar's height unconditionally
+   (see the scroller's hscrollbar_policy=ALWAYS) without permanently
+   showing a visible bar for rows that don't actually need to scroll --
+   toggled by _update_row_scrollbar_visibility whenever a row's content
+   changes. */
+.artwork-row-scrollbar-hidden { opacity: 0; }
 """
 
 # The 5 SGDB artwork categories the picker shows, each as its own
@@ -955,9 +965,12 @@ class MainWindow(Adw.ApplicationWindow):
             # not specific to any one service, happened whenever a
             # category's result count exceeded what fit on screen).
             # ALWAYS reserves that strip unconditionally so row height
-            # never depends on content -- overlay_scrolling stays on
-            # (the default) so the reserved strip doesn't also draw a
-            # permanently-visible scrollbar for rows that never scroll.
+            # never depends on content. The strip itself is still hidden
+            # (not removed -- opacity, so it keeps its space) whenever a
+            # row genuinely has nothing to scroll, via
+            # _update_row_scrollbar_visibility below -- reserving the
+            # space is what fixes alignment, but a permanently-visible
+            # bar under a blank/under-filled row is just noise.
             scroller = Gtk.ScrolledWindow(
                 child=row_box,
                 hscrollbar_policy=Gtk.PolicyType.ALWAYS,
@@ -965,6 +978,9 @@ class MainWindow(Adw.ApplicationWindow):
                 propagate_natural_height=True,
                 vexpand=False,
             )
+            hadjustment = scroller.get_hadjustment()
+            hadjustment.connect("changed", self._update_row_scrollbar_visibility, scroller)
+            self._update_row_scrollbar_visibility(hadjustment, scroller)
             section.append(scroller)
             panel.append(section)
 
@@ -984,6 +1000,22 @@ class MainWindow(Adw.ApplicationWindow):
             }
 
         return panel
+
+    def _update_row_scrollbar_visibility(self, hadjustment, scroller):
+        # hscrollbar_policy=ALWAYS keeps this row's scrollbar strip's
+        # height reserved unconditionally (see the scroller's own
+        # comment), but a strip that's always visible even for a
+        # blank/under-filled row that has nothing to scroll is just
+        # noise -- hide it via opacity (not remove_css_class churn on
+        # every pixel of scrolling, just when whether it's needed at
+        # all actually flips) whenever content doesn't overflow, while
+        # its layout space stays exactly as reserved either way.
+        hbar = scroller.get_hscrollbar()
+        needs_scroll = hadjustment.get_upper() - hadjustment.get_lower() > hadjustment.get_page_size() + 0.5
+        if needs_scroll:
+            hbar.remove_css_class("artwork-row-scrollbar-hidden")
+        else:
+            hbar.add_css_class("artwork-row-scrollbar-hidden")
 
     def _reset_artwork_panel(self):
         self.artwork_candidates = {basename: [] for basename, *_ in ARTWORK_CATEGORIES}
@@ -1074,8 +1106,14 @@ class MainWindow(Adw.ApplicationWindow):
         #
         # A ScrolledWindow with propagate_natural_width/height left at
         # their GTK4 default (False) never lets its child's natural size
-        # influence its own reported size at all, regardless of content
-        # -- a hard clip instead of a request that's only ever a floor.
+        # influence its own reported size at all, regardless of content --
+        # a real hard clip. (Widget:overflow=HIDDEN was tried instead and
+        # reverted: it only clips *painting*, it doesn't stop the parent
+        # from *allocating* Picture's larger natural size in the first
+        # place, so the misalignment bug would've come right back.)
+        # artwork-clip strips the ScrolledWindow's own default chrome
+        # (border/shadow/background) so a real cell matches a skeleton
+        # cell's plain Box exactly instead of looking a hair different.
         picture = Gtk.Picture(content_fit=Gtk.ContentFit.CONTAIN, hexpand=True, vexpand=True)
         clip = Gtk.ScrolledWindow(
             child=picture,
@@ -1085,6 +1123,7 @@ class MainWindow(Adw.ApplicationWindow):
             vscrollbar_policy=Gtk.PolicyType.NEVER,
             hexpand=False,
             vexpand=False,
+            css_classes=["artwork-clip"],
         )
         # artwork-skeleton (not just artwork-cell) so logos/icons with
         # transparent backgrounds get the same neutral backdrop the

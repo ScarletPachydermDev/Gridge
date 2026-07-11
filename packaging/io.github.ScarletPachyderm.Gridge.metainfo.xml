@@ -18,6 +18,20 @@
   <url type="bugtracker">https://github.com/Scarlet-Pachyderm/Gridge/issues</url>
   <developer_name>Scarlet-Pachyderm</developer_name>
   <releases>
+    <release version="1.1.0" date="2026-07-11">
+      <description>
+        <ul>
+          <li>Add a YouTube "Leanback mode" toggle for the TV-style interface</li>
+          <li>Add music streaming services (Spotify, Apple Music, YouTube Music, Amazon Music, Tidal, Deezer, SoundCloud, Pandora, iHeartRadio, Qobuz, Bandcamp)</li>
+          <li>Add a dedicated SteamGridDB search field, independent of the URL bar</li>
+          <li>Include SteamGridDB's Humor-tagged artwork, and remove the fixed limit that silently dropped results for popular titles</li>
+          <li>Fix onboarding never detecting a freshly-installed Steam, and have Gridge launch and explain first-time Steam setup</li>
+          <li>Fix several artwork picker layout bugs on large windows and when a category's results overflow</li>
+          <li>Add a reminder to set a Steam Input controller layout per shortcut, as couldn't find a way to set it automatically</li>
+          <li>Add an MIT license, disclaimer, and project credits</li>
+        </ul>
+      </description>
+    </release>
     <release version="1.0.0" date="2026-07-08"/>
   </releases>
   <content_rating type="oars-1.1"/>

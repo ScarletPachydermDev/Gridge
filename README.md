@@ -1,4 +1,18 @@
+<div align="center">
+
+<img src=".github/logo.png" width="128px" alt="Gridge logo">
+
 # Gridge
+
+Streaming and cloud-gaming services as native-looking Steam shortcuts
+
+<a href="LICENSE"><img src="https://img.shields.io/github/license/Scarlet-Pachyderm/Gridge?style=for-the-badge&labelColor=1c71d8&color=555555" height="28" alt="License"></a>
+<a href="https://github.com/Scarlet-Pachyderm/Gridge/releases/latest"><img src="https://img.shields.io/github/v/release/Scarlet-Pachyderm/Gridge?style=for-the-badge&labelColor=1c71d8&color=555555" height="28" alt="Latest release"></a>
+<a href="https://github.com/Scarlet-Pachyderm/Gridge/issues"><img src="https://img.shields.io/github/issues/Scarlet-Pachyderm/Gridge?style=for-the-badge&labelColor=1c71d8&color=555555" height="28" alt="Issues"></a>
+
+</div>
+
+---
 
 Type a URL or the name of a streaming/cloud-gaming service, and Gridge finds matching artwork on [SteamGridDB](https://www.steamgriddb.com/) and creates a non-Steam shortcut for it -- so it shows up as a native-looking tile in Steam's Game Mode, launching borderless in a kiosk browser window instead of a regular tab. Built with Steam hardware in mind.
 

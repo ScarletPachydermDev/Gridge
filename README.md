@@ -6,9 +6,9 @@
 
 Streaming and cloud-gaming services as native-looking Steam shortcuts
 
-<a href="LICENSE"><img src="https://img.shields.io/github/license/Scarlet-Pachyderm/Gridge?style=for-the-badge&labelColor=1c71d8&color=555555" height="28" alt="License"></a>
-<a href="https://github.com/Scarlet-Pachyderm/Gridge/releases/latest"><img src="https://img.shields.io/github/v/release/Scarlet-Pachyderm/Gridge?style=for-the-badge&labelColor=1c71d8&color=555555" height="28" alt="Latest release"></a>
-<a href="https://github.com/Scarlet-Pachyderm/Gridge/issues"><img src="https://img.shields.io/github/issues/Scarlet-Pachyderm/Gridge?style=for-the-badge&labelColor=1c71d8&color=555555" height="28" alt="Issues"></a>
+<a href="LICENSE"><img src="https://img.shields.io/github/license/ScarletPachydermDev/Gridge?style=for-the-badge&labelColor=1c71d8&color=555555" height="28" alt="License"></a>
+<a href="https://github.com/ScarletPachydermDev/Gridge/releases/latest"><img src="https://img.shields.io/github/v/release/ScarletPachydermDev/Gridge?style=for-the-badge&labelColor=1c71d8&color=555555" height="28" alt="Latest release"></a>
+<a href="https://github.com/ScarletPachydermDev/Gridge/issues"><img src="https://img.shields.io/github/issues/ScarletPachydermDev/Gridge?style=for-the-badge&labelColor=1c71d8&color=555555" height="28" alt="Issues"></a>
 
 </div>
 
@@ -51,19 +51,19 @@ Gridge ships as a Flatpak. To build it yourself:
 
 ```
 flatpak install --user flathub org.gnome.Sdk//50 org.gnome.Platform//50 org.flatpak.Builder
-git clone https://github.com/Scarlet-Pachyderm/Gridge.git
+git clone https://github.com/ScarletPachydermDev/Gridge.git
 cd Gridge
-flatpak run org.flatpak.Builder --user --install --force-clean build-dir packaging/io.github.ScarletPachyderm.Gridge.json
-flatpak run io.github.ScarletPachyderm.Gridge
+flatpak run org.flatpak.Builder --user --install --force-clean build-dir packaging/io.github.ScarletPachydermDev.Gridge.json
+flatpak run io.github.ScarletPachydermDev.Gridge
 ```
 
 ## Issues
 
-Found a bug, or a streaming service that doesn't work right? [Open an issue](https://github.com/Scarlet-Pachyderm/Gridge/issues).
+Found a bug, or a streaming service that doesn't work right? [Open an issue](https://github.com/ScarletPachydermDev/Gridge/issues).
 
 ## Credits
 
-Built by [Scarlet-Pachyderm](https://github.com/Scarlet-Pachyderm) and Claude Code. Artwork sourced from [SteamGridDB](https://www.steamgriddb.com/).
+Built by [ScarletPachydermDev](https://github.com/ScarletPachydermDev) and Claude Code. Artwork sourced from [SteamGridDB](https://www.steamgriddb.com/).
 
 Gridge doesn't share code with any of these, but built on ideas/techniques from:
 - [unrud/video-downloader](https://github.com/unrud/video-downloader) -- UI style inspiration (single window, no bells and whistles).

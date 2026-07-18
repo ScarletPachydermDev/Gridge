@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
-  <id>io.github.ScarletPachyderm.Gridge</id>
+  <id>io.github.ScarletPachydermDev.Gridge</id>
   <name>Gridge</name>
   <summary>Add streaming sites and cloud gaming services as Steam shortcuts</summary>
   <metadata_license>CC0-1.0</metadata_license>
@@ -13,20 +13,20 @@
       Mode -- built for Steam hardware in mind.
     </p>
   </description>
-  <launchable type="desktop-id">io.github.ScarletPachyderm.Gridge.desktop</launchable>
+  <launchable type="desktop-id">io.github.ScarletPachydermDev.Gridge.desktop</launchable>
   <screenshots>
     <screenshot type="default">
       <caption>Picking artwork and creating a Steam shortcut</caption>
-      <image>https://raw.githubusercontent.com/Scarlet-Pachyderm/Gridge/main/screenshots/main2.png</image>
+      <image>https://raw.githubusercontent.com/ScarletPachydermDev/Gridge/main/screenshots/main2.png</image>
     </screenshot>
     <screenshot>
       <caption>First-run setup</caption>
-      <image>https://raw.githubusercontent.com/Scarlet-Pachyderm/Gridge/main/screenshots/setup.png</image>
+      <image>https://raw.githubusercontent.com/ScarletPachydermDev/Gridge/main/screenshots/setup.png</image>
     </screenshot>
   </screenshots>
-  <url type="homepage">https://github.com/Scarlet-Pachyderm/Gridge</url>
-  <url type="bugtracker">https://github.com/Scarlet-Pachyderm/Gridge/issues</url>
-  <developer_name>Scarlet-Pachyderm</developer_name>
+  <url type="homepage">https://github.com/ScarletPachydermDev/Gridge</url>
+  <url type="bugtracker">https://github.com/ScarletPachydermDev/Gridge/issues</url>
+  <developer_name>ScarletPachydermDev</developer_name>
   <releases>
     <release version="1.1.2" date="2026-07-18">
       <description>

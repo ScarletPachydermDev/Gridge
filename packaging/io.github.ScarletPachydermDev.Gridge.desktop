@@ -3,6 +3,6 @@ Type=Application
 Name=Gridge
 Comment=Add streaming sites and cloud gaming services as Steam shortcuts
 Exec=gridge
-Icon=io.github.ScarletPachyderm.Gridge
+Icon=io.github.ScarletPachydermDev.Gridge
 Terminal=false
 Categories=Utility;Network;

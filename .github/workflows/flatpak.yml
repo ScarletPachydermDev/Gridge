@@ -21,7 +21,7 @@ jobs:
       - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
         with:
           bundle: gridge-x86_64.flatpak
-          manifest-path: packaging/io.github.ScarletPachyderm.Gridge.json
+          manifest-path: packaging/io.github.ScarletPachydermDev.Gridge.json
 
       - name: Create/update release and attach bundle
         if: startsWith(github.ref, 'refs/tags/v')

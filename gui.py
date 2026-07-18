@@ -31,10 +31,10 @@ from streaming_services import STREAMING_SERVICES  # noqa: E402
 
 APP_NAME = "Gridge"
 GRIDGE_VERSION = "1.1.2"
-GITHUB_URL = "https://github.com/Scarlet-Pachyderm/Gridge"
-ISSUES_URL = "https://github.com/Scarlet-Pachyderm/Gridge/issues"
+GITHUB_URL = "https://github.com/ScarletPachydermDev/Gridge"
+ISSUES_URL = "https://github.com/ScarletPachydermDev/Gridge/issues"
 SGDB_KEY_URL = "https://steamgriddb.com/profile/preferences/api"
-DONATE_URL = "https://github.com/Scarlet-Pachyderm/gridge#donate"
+DONATE_URL = "https://github.com/ScarletPachydermDev/gridge#donate"
 EDGE_REASON_TEXT = (
     "Edge is the only Chromium browser on Linux licensed for Dolby "
     "Digital Plus/Atmos audio -- other browsers can't play it."
@@ -1296,13 +1296,13 @@ class MainWindow(Adw.ApplicationWindow):
     def _on_about(self, _action, _param):
         about = Adw.AboutDialog(
             application_name=APP_NAME,
-            application_icon="io.github.ScarletPachyderm.Gridge",
+            application_icon="io.github.ScarletPachydermDev.Gridge",
             version=GRIDGE_VERSION,
-            developer_name="Scarlet-Pachyderm",
-            developers=["Scarlet-Pachyderm"],
+            developer_name="ScarletPachydermDev",
+            developers=["ScarletPachydermDev"],
             website=GITHUB_URL,
             issue_url=ISSUES_URL,
-            copyright="© 2026 Scarlet-Pachyderm",
+            copyright="© 2026 ScarletPachydermDev",
         )
         about.present(self)
 
@@ -1562,7 +1562,7 @@ class MainWindow(Adw.ApplicationWindow):
 
 class Application(Adw.Application):
     def __init__(self):
-        super().__init__(application_id="io.github.ScarletPachyderm.Gridge")
+        super().__init__(application_id="io.github.ScarletPachydermDev.Gridge")
         self._css_installed = False
 
     def do_activate(self):

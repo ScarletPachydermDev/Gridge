@@ -699,8 +699,16 @@ class OnboardingWindow(Adw.ApplicationWindow):
         if self._advanced:
             return
         self._advanced = True
-        self.close()
+        # Present the main window before closing this one, not after --
+        # closing first leaves the app with zero open windows for a brief
+        # moment, which is a known trigger for GNOME Shell losing track
+        # of the app's dock/taskbar association entirely (confirmed on
+        # real hardware: the dock icon showed correctly for onboarding
+        # itself, then vanished the instant it handed off to the main
+        # window). Keeping a window open throughout the handoff avoids
+        # that gap.
         self.on_complete(self.imported_count)
+        self.close()
 
 
 class MainWindow(Adw.ApplicationWindow):

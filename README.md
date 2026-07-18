@@ -33,7 +33,7 @@ Beyond that, Gridge also handles in the background:
 - **Removes Edge's first-time setup entirely.** A freshly-installed Edge normally shows its own onboarding wizard, a sign-in nudge, and an auto-opened "what's new" tour tab the first time it runs -- all in a regular browser window, not the kiosk window a shortcut expects. Gridge pre-seeds Edge's profile so none of that ever interrupts a shortcut's first launch.
 - **Keeps shortcuts sized correctly in Game Mode**, docked or undocked -- a non-Steam shortcut doesn't get Steam's automatic resolution handling that a real library game gets, so without this a shortcut would stay pinned to whatever resolution it first launched at even after docking to a TV. Gridge's shortcuts detect Gamescope's actual current output resolution and match it every launch.
 - **Export and import shortcuts** -- back up the set of shortcuts Gridge created (plus their artwork) as a zip, and restore them on another machine or after a reset, no re-entering URLs or re-picking artwork required.
-- **(Planned) Steam Input remapping for easier web navigation in Game Mode** -- not implemented yet.
+- ~~**(Planned) Steam Input remapping for easier web navigation in Game Mode** -- not implemented yet.~~ Scrapped, no local files to modify for Steam input per shortcut. 
 
 ![Main window](screenshots/main2.png)
 
@@ -41,9 +41,9 @@ Beyond that, Gridge also handles in the background:
 
 Every shortcut Gridge creates launches through Microsoft Edge, not a regular system browser or a bundled Electron window. That's a deliberate choice, not a default: **Edge is the only browser on Linux licensed to decode Dolby Digital Plus and Dolby Atmos audio.** Google never licensed those codecs into open-source Chromium, so every other Chromium-based browser (Chrome, Brave, Vivaldi, or a bundled Electron build) inherits the same gap.
 
-This isn't a hypothetical edge case -- plenty of mainstream streaming catalogs use Dolby Atmos/Plus tracks by default for supported titles (a large chunk of Disney+'s Marvel/Star Wars library, for instance). When a browser without codec support hits one of these tracks, it typically doesn't show an error at all: video keeps playing, but the audio silently fails or drops out, which is a much worse experience than a browser refusing to load the page. Edge is the one browser that avoids this entirely, so it's the only one Gridge shells out to.
+This isn't a hypothetical edge case -- plenty of mainstream streaming catalogs use Dolby Atmos/Plus as its sole audio track for supported titles (a large chunk of Disney+'s Marvel/Star Wars library, for instance). When a browser without codec support hits one of these tracks, we get an error or no error at all: video keeps playing, but the audio silently fails or drops out, which is a much worse experience than a browser refusing to load the page. Edge is the one browser that avoids this entirely, so it's the only one Gridge shells out to.
 
-Edge shares one profile across every shortcut Gridge creates, so logins and saved sessions from one streaming service carry over to the others automatically -- you only sign in once per service, not once per shortcut.
+Edge shares one profile across every shortcut Gridge creates, so logins, addons and saved sessions from one streaming service carry over to the others automatically -- you only sign in once per service, not once per shortcut.
 
 ## Building from source
 

@@ -30,7 +30,7 @@ import steam_restart  # noqa: E402
 from streaming_services import STREAMING_SERVICES  # noqa: E402
 
 APP_NAME = "Gridge"
-GRIDGE_VERSION = "1.3.1"
+GRIDGE_VERSION = "1.3.2"
 GITHUB_URL = "https://github.com/ScarletPachydermDev/Gridge"
 ISSUES_URL = "https://github.com/ScarletPachydermDev/Gridge/issues"
 SGDB_KEY_URL = "https://steamgriddb.com/profile/preferences/api"

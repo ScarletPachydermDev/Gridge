@@ -28,6 +28,13 @@
   <url type="bugtracker">https://github.com/ScarletPachydermDev/Gridge/issues</url>
   <developer_name>ScarletPachydermDev</developer_name>
   <releases>
+    <release version="1.3.2" date="2026-07-19">
+      <description>
+        <ul>
+          <li>Fix the release bundle not embedding the repo's GPG key, so installing it now sets up signature-verified updates too, same as the recommended install command</li>
+        </ul>
+      </description>
+    </release>
     <release version="1.3.1" date="2026-07-19">
       <description>
         <ul>

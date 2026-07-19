@@ -65,13 +65,14 @@ jobs:
           gpg-sign: ${{ secrets.GPG_KEY_ID }}
           build-bundle: false
 
-      - name: Build the release bundle (embeds the update repo's URL and its GPG key)
+      - name: Build the release bundle (embeds the update repo's URL, its GPG key, and a Flathub fallback for the runtime)
         run: |
           version="${GITHUB_REF_NAME#v}"
           flatpak build-bundle \
             --gpg-sign="$GPG_KEY_ID" \
             --gpg-keys=src/packaging/gridge-repo-public.gpg \
             --repo-url=https://scarletpachydermdev.github.io/Gridge/repo \
+            --runtime-repo=https://flathub.org/repo/flathub.flatpakrepo \
             built-repo "gridge-${version}-x86_64.flatpak" \
             io.github.ScarletPachydermDev.Gridge master
         env:

@@ -61,6 +61,7 @@ The `.flatpak` bundle on the [releases page](https://github.com/ScarletPachyderm
 ### Why not Flathub?
 
 Gridge was submitted to Flathub, but rejected: the project is too new ([insufficient development history](https://docs.flathub.org/docs/for-app-authors/requirements#insufficient-development-history)) and built with heavy AI assistance ([generative AI policy](https://docs.flathub.org/docs/for-app-authors/requirements#generative-ai-policy)). Both are legitimate policies, and Gridge genuinely doesn't meet them yet -- may try again once that's no longer true.
+
 ## Building from source
 
 To build it yourself:

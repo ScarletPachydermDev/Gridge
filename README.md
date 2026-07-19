@@ -55,7 +55,7 @@ flatpak remote-add --user --if-not-exists gridge https://raw.githubusercontent.c
 
 From then on `flatpak update` (or your desktop's automatic background updates, on by default on SteamOS and most GNOME/KDE-based distros) picks up new releases the same way a Flathub app would -- no manual reinstalling.
 
-Prefer a one-off install with no ongoing updates? Grab the `.flatpak` bundle from the [latest release](https://github.com/ScarletPachydermDev/Gridge/releases/latest) instead and `flatpak install gridge-*.flatpak`.
+The `.flatpak` bundle on the [releases page](https://github.com/ScarletPachydermDev/Gridge/releases/latest) also auto-registers the same repo on install, so it updates too -- but without the recommended install's signature verification on future updates, since bundle installs don't import the repo's GPG key the way the command above does. Prefer the command above unless you have a specific reason not to.
 
 ## Building from source
 
